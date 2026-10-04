@@ -1,26 +1,23 @@
-"""ChangeLedger API — moteur de veille des conditions fournisseurs (V1).
+"""ChangeLedger API — moteur de veille des conditions fournisseurs.
 
-Périmètre de cette première version :
-- Ajouter une source à surveiller (URL d'une page de CGV ou de tarifs)
-- Déclencher une vérification (manuelle via /sources/{id}/check, ou groupée via
-  /check-all — à brancher sur un planificateur externe, ex. Railway Cron)
-- Détecter un changement de contenu, le classifier et en résumer l'impact via Claude
-- Consulter l'historique des changements détectés
-
-Volontairement hors périmètre de cette V1 (voir README) : comptes utilisateurs,
-facturation, alertes email/Slack automatiques, import de PDF ou de contrats signés.
+Comptes utilisateurs (JWT) et facturation (Stripe, paliers Essentiel/Pro/Entreprise)
+ajoutés au-dessus du moteur de veille V1. Chaque source surveillée appartient à un
+utilisateur ; /check-all reste un endpoint système protégé par un secret partagé
+(CRON_SECRET), destiné à un planificateur externe (ex. cron-job.org).
 """
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from . import crud, models, schemas
+from . import auth, billing, crud, models, schemas
 from .analyzer import analyze_change
+from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL
 from .database import Base, engine, get_db
 from .differ import compute_diff, content_hash
 from .fetcher import fetch_text
+from .models import PLAN_LIMITS
 
 
 @asynccontextmanager
@@ -32,7 +29,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ChangeLedger API",
     description="Veille des conditions fournisseurs (CGV, tarifs, contrats).",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -42,44 +39,124 @@ def health():
     return {"status": "ok"}
 
 
+# --- Authentification ---
+
+@app.post("/auth/signup", response_model=schemas.UserOut, status_code=201)
+def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+    if crud.get_user_by_email(db, payload.email):
+        raise HTTPException(status_code=409, detail="Un compte existe déjà avec cet email.")
+    user = crud.create_user(db, payload.email, auth.hash_password(payload.password))
+    return user
+
+
+@app.post("/auth/login", response_model=schemas.Token)
+def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = crud.get_user_by_email(db, payload.email)
+    if not user or not auth.verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect.")
+    return schemas.Token(access_token=auth.create_access_token(user.id))
+
+
+@app.get("/auth/me", response_model=schemas.UserOut)
+def read_me(current_user: models.User = Depends(auth.get_current_user)):
+    return current_user
+
+
+# --- Facturation ---
+
+@app.post("/billing/checkout", response_model=schemas.CheckoutResponse)
+def create_checkout(
+    payload: schemas.CheckoutRequest,
+    request: Request,
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    if payload.plan not in ("essentiel", "pro"):
+        raise HTTPException(
+            status_code=400,
+            detail="Palier invalide pour un paiement en ligne (essentiel ou pro). "
+            "Le palier Entreprise s'active via contact commercial.",
+        )
+    base_url = str(request.base_url).rstrip("/")
+    success_url = CHECKOUT_SUCCESS_URL if CHECKOUT_SUCCESS_URL.startswith("http") else base_url + CHECKOUT_SUCCESS_URL
+    cancel_url = CHECKOUT_CANCEL_URL if CHECKOUT_CANCEL_URL.startswith("http") else base_url + CHECKOUT_CANCEL_URL
+    url = billing.create_checkout_session(current_user, payload.plan, success_url, cancel_url)
+    return schemas.CheckoutResponse(checkout_url=url)
+
+
+@app.get("/billing/portal", response_model=schemas.PortalResponse)
+def billing_portal(request: Request, current_user: models.User = Depends(auth.get_current_user)):
+    base_url = str(request.base_url).rstrip("/")
+    url = billing.create_portal_session(current_user, return_url=base_url + "/docs")
+    return schemas.PortalResponse(portal_url=url)
+
+
+@app.post("/billing/webhook")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    payload = await request.body()
+    signature = request.headers.get("stripe-signature")
+    event = billing.construct_webhook_event(payload, signature)
+    billing.handle_webhook_event(db, event)
+    return {"received": True}
+
+
+# --- Sources (scopées à l'utilisateur connecté) ---
+
 @app.post("/sources", response_model=schemas.SourceOut)
-def add_source(payload: schemas.SourceCreate, db: Session = Depends(get_db)):
-    return crud.create_source(db, payload.supplier_name, payload.label, str(payload.url))
+def add_source(
+    payload: schemas.SourceCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    limit = PLAN_LIMITS.get(current_user.plan.value if hasattr(current_user.plan, "value") else current_user.plan)
+    if limit is not None and crud.count_sources_for_user(db, current_user.id) >= limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Limite de {limit} sources atteinte pour votre palier actuel. "
+            "Passez à un palier supérieur pour en surveiller davantage.",
+        )
+    return crud.create_source(db, current_user.id, payload.supplier_name, payload.label, str(payload.url))
 
 
 @app.get("/sources", response_model=list[schemas.SourceOut])
-def get_sources(db: Session = Depends(get_db)):
-    return crud.list_sources(db)
+def get_sources(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    return crud.list_sources(db, current_user.id)
 
 
 @app.get("/sources/{source_id}", response_model=schemas.SourceOut)
-def get_source(source_id: str, db: Session = Depends(get_db)):
-    source = crud.get_source(db, source_id)
+def get_source(
+    source_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)
+):
+    source = crud.get_source(db, current_user.id, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Source introuvable.")
     return source
 
 
 @app.delete("/sources/{source_id}", status_code=204)
-def remove_source(source_id: str, db: Session = Depends(get_db)):
-    source = crud.get_source(db, source_id)
+def remove_source(
+    source_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)
+):
+    source = crud.get_source(db, current_user.id, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Source introuvable.")
     crud.delete_source(db, source)
 
 
 @app.post("/sources/{source_id}/check", response_model=schemas.CheckResult)
-async def check_source(source_id: str, db: Session = Depends(get_db)):
-    source = crud.get_source(db, source_id)
+async def check_source(
+    source_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)
+):
+    source = crud.get_source(db, current_user.id, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Source introuvable.")
     return await _check_one(db, source)
 
 
-@app.post("/check-all", response_model=list[schemas.CheckResult])
+@app.post("/check-all", response_model=list[schemas.CheckResult], dependencies=[Depends(auth.verify_cron_secret)])
 async def check_all(db: Session = Depends(get_db)):
-    """À brancher sur un planificateur externe (ex. Railway Cron) pour une veille automatique."""
-    return [await _check_one(db, source) for source in crud.list_sources(db)]
+    """Endpoint système (protégé par CRON_SECRET) à brancher sur un planificateur externe
+    (ex. cron-job.org) pour une veille automatique — vérifie les sources de tous les utilisateurs."""
+    return [await _check_one(db, source) for source in crud.list_all_sources(db)]
 
 
 async def _check_one(db: Session, source: models.Source) -> schemas.CheckResult:
@@ -135,13 +212,19 @@ async def _check_one(db: Session, source: models.Source) -> schemas.CheckResult:
 
 
 @app.get("/changes", response_model=list[schemas.ChangeOut])
-def get_changes(source_id: Optional[str] = None, db: Session = Depends(get_db)):
-    return crud.list_changes(db, source_id)
+def get_changes(
+    source_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    return crud.list_changes(db, current_user.id, source_id)
 
 
 @app.get("/changes/{change_id}", response_model=schemas.ChangeOut)
-def get_change(change_id: str, db: Session = Depends(get_db)):
-    change = crud.get_change(db, change_id)
+def get_change(
+    change_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)
+):
+    change = crud.get_change(db, current_user.id, change_id)
     if not change:
         raise HTTPException(status_code=404, detail="Changement introuvable.")
     return change

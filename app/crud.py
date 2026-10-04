@@ -1,4 +1,4 @@
-"""Opérations de base de données (CRUD) pour sources, snapshots et changements."""
+"""Opérations de base de données (CRUD) pour users, sources, snapshots et changements."""
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -6,20 +6,84 @@ from sqlalchemy.orm import Session
 from . import models
 
 
-def create_source(db: Session, supplier_name: str, label: Optional[str], url: str) -> models.Source:
-    source = models.Source(supplier_name=supplier_name, label=label, url=url)
+# --- Users ---
+
+def create_user(db: Session, email: str, hashed_password: str) -> models.User:
+    user = models.User(email=email, hashed_password=hashed_password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_user(db: Session, user_id: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+
+def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.email == email).first()
+
+
+def get_user_by_stripe_customer_id(db: Session, stripe_customer_id: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.stripe_customer_id == stripe_customer_id).first()
+
+
+def set_user_stripe_customer(db: Session, user: models.User, stripe_customer_id: str) -> models.User:
+    user.stripe_customer_id = stripe_customer_id
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_subscription(
+    db: Session,
+    user: models.User,
+    plan: str,
+    stripe_subscription_id: Optional[str],
+    subscription_status: Optional[str],
+) -> models.User:
+    user.plan = plan
+    user.stripe_subscription_id = stripe_subscription_id
+    user.subscription_status = subscription_status
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# --- Sources (scopées à un utilisateur) ---
+
+def create_source(db: Session, user_id: str, supplier_name: str, label: Optional[str], url: str) -> models.Source:
+    source = models.Source(user_id=user_id, supplier_name=supplier_name, label=label, url=url)
     db.add(source)
     db.commit()
     db.refresh(source)
     return source
 
 
-def list_sources(db: Session) -> list[models.Source]:
-    return db.query(models.Source).order_by(models.Source.created_at.desc()).all()
+def count_sources_for_user(db: Session, user_id: str) -> int:
+    return db.query(models.Source).filter(models.Source.user_id == user_id).count()
 
 
-def get_source(db: Session, source_id: str) -> Optional[models.Source]:
-    return db.query(models.Source).filter(models.Source.id == source_id).first()
+def list_sources(db: Session, user_id: str) -> list[models.Source]:
+    return (
+        db.query(models.Source)
+        .filter(models.Source.user_id == user_id)
+        .order_by(models.Source.created_at.desc())
+        .all()
+    )
+
+
+def list_all_sources(db: Session) -> list[models.Source]:
+    """Toutes les sources, tous utilisateurs confondus — utilisé par /check-all."""
+    return db.query(models.Source).all()
+
+
+def get_source(db: Session, user_id: str, source_id: str) -> Optional[models.Source]:
+    return (
+        db.query(models.Source)
+        .filter(models.Source.id == source_id, models.Source.user_id == user_id)
+        .first()
+    )
 
 
 def delete_source(db: Session, source: models.Source) -> None:
@@ -69,12 +133,17 @@ def create_change(
     return change
 
 
-def list_changes(db: Session, source_id: Optional[str] = None) -> list[models.Change]:
-    query = db.query(models.Change)
+def list_changes(db: Session, user_id: str, source_id: Optional[str] = None) -> list[models.Change]:
+    query = db.query(models.Change).join(models.Source).filter(models.Source.user_id == user_id)
     if source_id:
         query = query.filter(models.Change.source_id == source_id)
     return query.order_by(models.Change.detected_at.desc()).all()
 
 
-def get_change(db: Session, change_id: str) -> Optional[models.Change]:
-    return db.query(models.Change).filter(models.Change.id == change_id).first()
+def get_change(db: Session, user_id: str, change_id: str) -> Optional[models.Change]:
+    return (
+        db.query(models.Change)
+        .join(models.Source)
+        .filter(models.Change.id == change_id, models.Source.user_id == user_id)
+        .first()
+    )

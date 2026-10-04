@@ -1,9 +1,9 @@
-"""Modèles de base de données : Source, Snapshot, Change."""
+"""Modèles de base de données : User, Source, Snapshot, Change."""
 import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -31,17 +31,54 @@ class ChangeSeverity(str, enum.Enum):
     urgent = "urgent"
 
 
+class PlanType(str, enum.Enum):
+    none = "none"  # inscrit mais pas encore abonné
+    essentiel = "essentiel"
+    pro = "pro"
+    entreprise = "entreprise"  # activé manuellement après contact commercial
+
+
+# Nombre de sources surveillées autorisées par palier. None = illimité.
+PLAN_LIMITS: dict[str, "int | None"] = {
+    PlanType.none.value: 0,
+    PlanType.essentiel.value: 5,
+    PlanType.pro.value: 25,
+    PlanType.entreprise.value: None,
+}
+
+
+class User(Base):
+    """Un compte client ChangeLedger."""
+
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    email = Column(String, nullable=False, unique=True, index=True)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=_now)
+
+    plan = Column(Enum(PlanType), default=PlanType.none, nullable=False)
+    stripe_customer_id = Column(String, nullable=True, index=True)
+    stripe_subscription_id = Column(String, nullable=True)
+    subscription_status = Column(String, nullable=True)  # ex. active, past_due, canceled
+
+    sources = relationship("Source", back_populates="owner", cascade="all, delete-orphan")
+
+
 class Source(Base):
     """Une source surveillée : un document ou une page (CGV, tarifs...) d'un fournisseur."""
 
     __tablename__ = "sources"
 
     id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     supplier_name = Column(String, nullable=False)
     label = Column(String, nullable=True)  # ex. "CGV", "Grille tarifaire"
     url = Column(String, nullable=False)
     created_at = Column(DateTime, default=_now)
 
+    owner = relationship("User", back_populates="sources")
     snapshots = relationship(
         "Snapshot", back_populates="source", cascade="all, delete-orphan", order_by="Snapshot.captured_at"
     )
