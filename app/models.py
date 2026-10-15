@@ -69,6 +69,10 @@ class User(Base):
     reset_token = Column(String, nullable=True, index=True)
     reset_token_expires_at = Column(DateTime, nullable=True)
 
+    # Alertes webhook (Slack, Zapier, système interne...), en complément de l'alerte email.
+    # Self-service : l'utilisateur configure sa propre URL via PUT /auth/webhook.
+    webhook_url = Column(String, nullable=True)
+
     sources = relationship("Source", back_populates="owner", cascade="all, delete-orphan")
 
 

@@ -73,3 +73,50 @@ def send_password_reset_email(to_email: str, token: str) -> None:
         )
     except Exception:  # noqa: BLE001 - un échec d'envoi ne doit jamais bloquer le flux
         pass
+
+
+def send_change_webhook(webhook_url, source: models.Source, change: models.Change) -> None:
+    """Envoie une alerte de changement sur le webhook configuré par l'utilisateur
+    (Slack, Zapier, système interne...), en complément de l'email.
+
+    Le payload est au format attendu par les webhooks entrants Slack (clé "text"),
+    que Slack affiche directement ; les receveurs génériques (Zapier, endpoint maison)
+    peuvent utiliser ce même champ ou lire les objets "source"/"change" structurés.
+
+    Même logique de repli que les autres fonctions de ce module : une erreur d'envoi
+    (URL injoignable, webhook supprimé côté destinataire...) ne doit jamais faire
+    échouer la détection de changement elle-même.
+    """
+    if not webhook_url:
+        return
+
+    severity_value = change.severity.value if hasattr(change.severity, "value") else change.severity
+    category_value = change.category.value if hasattr(change.category, "value") else change.category
+    label = SEVERITY_LABELS.get(severity_value, severity_value)
+
+    text = (
+        f"[{label}] Changement détecté chez {source.supplier_name}"
+        f" ({source.label or 'source surveillée'}) : "
+        f"{change.summary or 'résumé indisponible'}"
+    )
+
+    payload = {
+        "text": text,
+        "source": {
+            "id": source.id,
+            "supplier_name": source.supplier_name,
+            "label": source.label,
+            "url": source.url,
+        },
+        "change": {
+            "id": change.id,
+            "category": category_value,
+            "severity": severity_value,
+            "summary": change.summary,
+        },
+    }
+
+    try:
+        httpx.post(webhook_url, json=payload, timeout=10)
+    except Exception:  # noqa: BLE001 - un échec d'envoi ne doit jamais bloquer la détection
+        pass

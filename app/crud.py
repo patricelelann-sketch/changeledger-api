@@ -88,6 +88,14 @@ def reset_password(db: Session, user: models.User, hashed_password: str) -> mode
     return user
 
 
+def set_webhook_url(db: Session, user: models.User, webhook_url: Optional[str]) -> models.User:
+    """Enregistre (ou efface, si webhook_url est None) le webhook d'alerte de l'utilisateur."""
+    user.webhook_url = webhook_url
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 # --- Sources (scopées à un utilisateur) ---
 
 def create_source(db: Session, user_id: str, supplier_name: str, label: Optional[str], url: str) -> models.Source:

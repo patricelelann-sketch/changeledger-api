@@ -31,6 +31,7 @@ class UserOut(BaseModel):
     email: str
     plan: str
     subscription_status: Optional[str] = None
+    webhook_url: Optional[str] = None
     created_at: datetime
 
 
@@ -52,6 +53,20 @@ class ResetPasswordRequest(BaseModel):
     def password_min_length(cls, v: str) -> str:
         if len(v) < 8:
             raise ValueError("Le mot de passe doit contenir au moins 8 caractères.")
+        return v
+
+
+class WebhookRequest(BaseModel):
+    # None (ou absent du JSON) efface le webhook configuré.
+    webhook_url: Optional[str] = None
+
+    @field_validator("webhook_url")
+    @classmethod
+    def webhook_must_be_https(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith("https://"):
+            raise ValueError("L'URL du webhook doit commencer par https://.")
         return v
 
 

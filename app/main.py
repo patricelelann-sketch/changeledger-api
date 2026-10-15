@@ -90,6 +90,17 @@ def reset_password_endpoint(payload: schemas.ResetPasswordRequest, db: Session =
     return {"message": "Mot de passe réinitialisé avec succès."}
 
 
+@app.put("/auth/webhook", response_model=schemas.UserOut)
+def set_webhook(
+    payload: schemas.WebhookRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Enregistre (ou efface, en envoyant webhook_url: null) l'URL de webhook de l'utilisateur
+    connecté — reçoit une copie de chaque alerte de changement, en plus de l'email."""
+    return crud.set_webhook_url(db, current_user, payload.webhook_url)
+
+
 # --- Facturation ---
 
 @app.post("/billing/checkout", response_model=schemas.CheckoutResponse)
@@ -264,6 +275,7 @@ async def _check_one(db: Session, source: models.Source) -> schemas.CheckResult:
     )
     if change.severity in (models.ChangeSeverity.urgent, models.ChangeSeverity.attention):
         notifier.send_change_alert(source.owner.email, source, change)
+        notifier.send_change_webhook(source.owner.webhook_url, source, change)
     return schemas.CheckResult(
         source_id=source.id,
         changed=True,

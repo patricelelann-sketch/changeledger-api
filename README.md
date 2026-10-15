@@ -24,9 +24,10 @@ Inclus (V1 + V2) :
 - Historique consultable des changements détectés
 - Alerte automatique par email au propriétaire du compte dès qu'un changement de
   sévérité "urgent" ou "attention" est détecté sur une de ses sources (via Resend)
+- Webhook optionnel configurable par chaque utilisateur (self-service), reçoit une
+  copie de chaque alerte en plus de l'email — compatible Slack Incoming Webhook
 
 Volontairement hors périmètre, à construire ensuite :
-- Alertes Slack / webhook configurable par utilisateur (l'email est couvert, pas ces canaux)
 - Import de PDF et de contrats signés (seules les pages web texte/HTML sont supportées pour l'instant)
 - Frontend (cette V2 reste une API pure ; les URLs de retour Stripe pointent
   par défaut vers `/docs` faute de frontend dédié)
@@ -162,6 +163,29 @@ changement de sévérité "urgent" ou "attention" est détecté sur une de ses s
 que ce soit via une vérification manuelle (`/sources/{id}/check`) ou automatique
 (`/check-all`). Les changements "info" ne déclenchent pas d'alerte.
 
+## Webhooks
+
+En plus de l'alerte email, chaque utilisateur peut enregistrer sa propre URL de
+webhook (self-service, pas besoin d'intervention admin) :
+
+```bash
+# Enregistrer un webhook (doit être en https://)
+curl -s -X PUT $BASE/auth/webhook -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"webhook_url": "https://hooks.slack.com/services/..."}'
+
+# L'effacer
+curl -s -X PUT $BASE/auth/webhook -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" -d '{"webhook_url": null}'
+```
+
+À chaque changement "urgent" ou "attention" détecté, un `POST` JSON est envoyé sur
+cette URL (en plus de l'email), avec une clé `text` (message prêt à l'emploi,
+compatible webhook entrant Slack) et des objets `source`/`change` structurés pour
+les receveurs génériques (Zapier, système interne...). Même logique de repli que
+les autres alertes : un échec d'envoi (URL injoignable, webhook supprimé côté
+destinataire) n'interrompt jamais la détection de changement elle-même.
+
 ## Administration
 
 Une petite interface web, `GET /admin/ui`, permet de lister les comptes et de
@@ -220,6 +244,8 @@ l'accès à la page) : évitez de partager son URL inutilement.
    exemple : `ALTER TABLE users ADD COLUMN reset_token VARCHAR; ALTER TABLE users ADD
    COLUMN reset_token_expires_at TIMESTAMP;` — à faire une fois, avant ou juste après le
    déploiement du code qui l'utilise.
+   De même pour `webhook_url` : `ALTER TABLE users ADD COLUMN webhook_url VARCHAR;`
+   avant de déployer le code qui l'utilise.
 
 ### Planifier les vérifications automatiques
 
