@@ -6,6 +6,7 @@ utilisateur ; /check-all reste un endpoint système protégé par un secret part
 (CRON_SECRET), destiné à un planificateur externe (ex. cron-job.org).
 """
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import auth, billing, crud, models, notifier, schemas
 from .analyzer import analyze_change
-from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL
+from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EXPIRE_MINUTES
 from .database import Base, engine, get_db
 from .differ import compute_diff, content_hash
 from .fetcher import fetch_text
@@ -60,6 +61,31 @@ def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 @app.get("/auth/me", response_model=schemas.UserOut)
 def read_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
+
+
+@app.post("/auth/forgot-password")
+def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Déclenche l'envoi d'un jeton de réinitialisation si le compte existe.
+
+    Répond toujours le même message générique, que l'email corresponde à un compte ou non,
+    pour ne pas permettre de découvrir quels emails sont inscrits (énumération de comptes).
+    """
+    user = crud.get_user_by_email(db, payload.email)
+    if user:
+        token = auth.create_reset_token()
+        expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
+        crud.set_reset_token(db, user, token, expires_at)
+        notifier.send_password_reset_email(user.email, token)
+    return {"message": "Si un compte existe avec cet email, un code de réinitialisation a été envoyé."}
+
+
+@app.post("/auth/reset-password")
+def reset_password_endpoint(payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = crud.get_user_by_reset_token(db, payload.token)
+    if not user or not user.reset_token_expires_at or user.reset_token_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Code de réinitialisation invalide ou expiré.")
+    crud.reset_password(db, user, auth.hash_password(payload.new_password))
+    return {"message": "Mot de passe réinitialisé avec succès."}
 
 
 # --- Facturation ---

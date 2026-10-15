@@ -1,4 +1,5 @@
 """Opérations de base de données (CRUD) pour users, sources, snapshots et changements."""
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -60,6 +61,28 @@ def set_plan(db: Session, user: models.User, plan: str) -> models.User:
     contact commercial). Ne touche pas aux champs Stripe : utile aussi bien pour un compte
     sans abonnement Stripe (Entreprise) que pour corriger ponctuellement un palier existant."""
     user.plan = plan
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def set_reset_token(db: Session, user: models.User, token: str, expires_at: datetime) -> models.User:
+    user.reset_token = token
+    user.reset_token_expires_at = expires_at
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def get_user_by_reset_token(db: Session, token: str) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.reset_token == token).first()
+
+
+def reset_password(db: Session, user: models.User, hashed_password: str) -> models.User:
+    """Change le mot de passe et invalide le jeton (usage unique)."""
+    user.hashed_password = hashed_password
+    user.reset_token = None
+    user.reset_token_expires_at = None
     db.commit()
     db.refresh(user)
     return user

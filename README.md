@@ -8,7 +8,8 @@ la facturation par abonnement (Stripe, paliers Essentiel / Pro / Entreprise).
 ## Périmètre
 
 Inclus (V1 + V2) :
-- Comptes utilisateurs : inscription/connexion par email + mot de passe (JWT)
+- Comptes utilisateurs : inscription/connexion par email + mot de passe (JWT),
+  avec réinitialisation de mot de passe par email
 - Chaque source surveillée appartient à un utilisateur (multi-tenant)
 - Trois paliers d'abonnement : **Essentiel** (5 sources), **Pro** (25 sources),
   **Entreprise** (illimité, activé manuellement après contact commercial — pas
@@ -55,6 +56,12 @@ comptes utilisateurs), elle est incompatible avec le nouveau schéma (colonne
 `user_id` requise sur `sources`). En local, supprimez simplement le fichier
 `changeledger.db` avant de relancer le serveur — il sera recréé automatiquement
 avec le nouveau schéma. Sur Railway, voir la section déploiement ci-dessous.
+
+**Mise à jour ultérieure du schéma** (ex. ajout des colonnes `reset_token` /
+`reset_token_expires_at` sur `users`) : contrairement au tout premier déploiement V2,
+il ne s'agit plus de recréer les tables depuis zéro (ce qui perdrait les comptes et
+abonnements existants), mais d'ajouter les nouvelles colonnes avec `ALTER TABLE` — voir
+la section déploiement ci-dessous.
 
 ### Séquence de test recommandée (comptes + facturation)
 
@@ -116,6 +123,25 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
    l'endpoint protégé `POST /admin/users/plan` (voir section "Administration"
    ci-dessous) après un contact commercial.
 
+## Réinitialisation de mot de passe
+
+Pas de page web dédiée (pas de frontend pour l'instant) : le flux se fait en deux appels API.
+
+```bash
+# 1. Demander un code de réinitialisation (toujours la même réponse, que l'email existe ou non)
+curl -s -X POST $BASE/auth/forgot-password -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com"}'
+# → si le compte existe et que RESEND_API_KEY est configurée, un email contenant un code
+#   (valable 30 minutes par défaut, voir PASSWORD_RESET_EXPIRE_MINUTES) est envoyé.
+
+# 2. Réinitialiser avec ce code
+curl -s -X POST $BASE/auth/reset-password -H "Content-Type: application/json" \
+  -d '{"token": "<code reçu par email>", "new_password": "nouveaumotdepasse123"}'
+```
+
+Le code est à usage unique : il est invalidé dès qu'il est utilisé (ou remplacé par une
+nouvelle demande via `/auth/forgot-password`).
+
 ## Configuration des alertes email
 
 1. Créez un compte sur [Resend](https://resend.com) (un plan gratuit suffit pour démarrer).
@@ -172,6 +198,14 @@ de changer le palier de n'importe quel compte. Générez une vraie valeur avec
    existantes). Avant le premier déploiement de cette V2, videz les tables via
    la console Postgres de Railway : `DROP TABLE changes, snapshots, sources
    CASCADE;` — elles seront recréées avec le bon schéma au démarrage.
+8. **Évolutions ultérieures du schéma** (après ce premier déploiement V2, une fois de
+   vrais comptes en production) : `create_all` ne modifie jamais les tables existantes,
+   donc un nouveau champ sur un modèle (ex. `reset_token` sur `User`) n'apparaît pas tout
+   seul. Pas de `DROP TABLE` cette fois (ça supprimerait les comptes et abonnements
+   réels) : ajoutez la colonne manuellement via la console Postgres de Railway, par
+   exemple : `ALTER TABLE users ADD COLUMN reset_token VARCHAR; ALTER TABLE users ADD
+   COLUMN reset_token_expires_at TIMESTAMP;` — à faire une fois, avant ou juste après le
+   déploiement du code qui l'utilise.
 
 ### Planifier les vérifications automatiques
 
@@ -206,8 +240,10 @@ app/
 
 1. Valider la séquence de test ci-dessus en local, puis en conditions Stripe
    test avant tout paiement réel.
-2. Réinitialisation de mot de passe (actuellement absente).
-3. Interface minimale d'administration (plutôt que des commandes curl sur
+2. Interface minimale d'administration (plutôt que des commandes curl sur
    `/admin/*`) pour gérer les comptes et activer le palier Entreprise.
-4. Alertes Slack / webhook configurable par utilisateur, en complément de
+3. Alertes Slack / webhook configurable par utilisateur, en complément de
    l'alerte email déjà en place.
+4. Vérifier un domaine propre dans Resend pour que les emails (alertes et
+   réinitialisation de mot de passe) puissent atteindre de vrais clients, pas
+   seulement l'adresse du compte Resend.

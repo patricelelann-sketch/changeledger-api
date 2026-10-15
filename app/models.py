@@ -63,6 +63,12 @@ class User(Base):
     stripe_subscription_id = Column(String, nullable=True)
     subscription_status = Column(String, nullable=True)  # ex. active, past_due, canceled
 
+    # Réinitialisation de mot de passe : un jeton à usage unique, à durée de vie limitée.
+    # Stocké en UTC naïf (sans fuseau) volontairement, pour une comparaison simple côté code
+    # sans risquer de mélanger naïf/conscient selon le moteur de base (SQLite vs Postgres).
+    reset_token = Column(String, nullable=True, index=True)
+    reset_token_expires_at = Column(DateTime, nullable=True)
+
     sources = relationship("Source", back_populates="owner", cascade="all, delete-orphan")
 
 

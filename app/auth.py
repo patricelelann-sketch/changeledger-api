@@ -1,4 +1,5 @@
 """Authentification : hashage de mot de passe, JWT, dépendance d'utilisateur courant."""
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -23,6 +24,11 @@ def create_access_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     payload = {"sub": user_id, "exp": expire}
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def create_reset_token() -> str:
+    """Génère un jeton de réinitialisation de mot de passe à usage unique (aléatoire, imprévisible)."""
+    return secrets.token_urlsafe(32)
 
 
 def _decode_token(token: str) -> str:

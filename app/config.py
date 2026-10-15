@@ -21,6 +21,9 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-ne-pas-utiliser-en-prod
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))  # 7 jours par défaut
 
+# Durée de validité d'un jeton de réinitialisation de mot de passe, en minutes.
+PASSWORD_RESET_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_EXPIRE_MINUTES", "30"))
+
 # --- Cron externe (ex. cron-job.org) ---
 # Secret partagé à fournir dans l'en-tête "X-Cron-Secret" pour appeler /check-all.
 # Si non défini, /check-all reste ouvert sans protection (pratique en dev local).

@@ -4,7 +4,7 @@ Utilise l'API HTTP de Resend (https://resend.com) via httpx, déjà une dépenda
 du projet — pas besoin d'ajouter un SDK supplémentaire.
 """
 from . import models
-from .config import ALERT_FROM_EMAIL, RESEND_API_KEY
+from .config import ALERT_FROM_EMAIL, PASSWORD_RESET_EXPIRE_MINUTES, RESEND_API_KEY
 
 import httpx
 
@@ -43,4 +43,33 @@ def send_change_alert(to_email: str, source: models.Source, change: models.Chang
             timeout=10,
         )
     except Exception:  # noqa: BLE001 - une alerte en échec ne doit jamais bloquer la détection
+        pass
+
+
+def send_password_reset_email(to_email: str, token: str) -> None:
+    """Envoie le jeton de réinitialisation de mot de passe par email.
+
+    Même logique de repli que send_change_alert : une erreur d'envoi ne doit jamais
+    faire échouer bruyamment /auth/forgot-password (qui répond toujours un message
+    générique, qu'un compte existe ou non, pour ne pas révéler les emails inscrits).
+    """
+    if not RESEND_API_KEY:
+        return
+    subject = "[ChangeLedger] Réinitialisation de votre mot de passe"
+    html = (
+        "<p>Vous avez demandé la réinitialisation de votre mot de passe ChangeLedger.</p>"
+        f"<p>Utilisez ce code pour le réinitialiser (valable {PASSWORD_RESET_EXPIRE_MINUTES} minutes) "
+        f"avec l'endpoint <code>POST /auth/reset-password</code> :</p>"
+        f"<p><code>{token}</code></p>"
+        "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email : "
+        "votre mot de passe ne sera pas modifié.</p>"
+    )
+    try:
+        httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json={"from": ALERT_FROM_EMAIL, "to": [to_email], "subject": subject, "html": html},
+            timeout=10,
+        )
+    except Exception:  # noqa: BLE001 - un échec d'envoi ne doit jamais bloquer le flux
         pass
