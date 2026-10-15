@@ -159,21 +159,30 @@ que ce soit via une vérification manuelle (`/sources/{id}/check`) ou automatiqu
 
 ## Administration
 
-Deux endpoints protégés par un secret partagé (`ADMIN_SECRET`, à fournir dans
-l'en-tête `X-Admin-Secret`) permettent de gérer les comptes sans passer par la
-console Postgres de Railway :
+Une petite interface web, `GET /admin/ui`, permet de lister les comptes et de
+changer leur palier sans passer par des commandes curl ou la console Postgres
+de Railway : ouvrez `<votre URL>/admin/ui` dans un navigateur, saisissez le
+secret admin (stocké uniquement en mémoire de l'onglet, jamais envoyé ailleurs
+qu'à votre propre API), et utilisez le tableau pour consulter ou modifier un
+compte. C'est le moyen normal d'activer le palier **Entreprise** après un
+contact commercial (il n'y a pas de paiement en ligne pour ce palier).
+
+Elle s'appuie sur deux endpoints JSON, protégés par un secret partagé
+(`ADMIN_SECRET`, à fournir dans l'en-tête `X-Admin-Secret`) — toujours
+utilisables directement si besoin (scripts, automatisation) :
 
 - `GET /admin/users` — liste tous les comptes (email, palier, statut d'abonnement).
 - `POST /admin/users/plan` — change le palier d'un compte, identifié par son
-  email. C'est le moyen normal d'activer le palier **Entreprise** après un
-  contact commercial (il n'y a pas de paiement en ligne pour ce palier) :
-  `{"email": "client@exemple.com", "plan": "entreprise"}`.
+  email : `{"email": "client@exemple.com", "plan": "entreprise"}`.
 
 Contrairement à `CRON_SECRET`, `ADMIN_SECRET` n'a pas de mode "ouvert" : si la
 variable n'est pas définie, ces deux endpoints refusent systématiquement
 l'appel (403) plutôt que de rester accessibles sans protection — ils permettent
 de changer le palier de n'importe quel compte. Générez une vraie valeur avec
-`openssl rand -hex 32`, distincte de `CRON_SECRET` et des autres secrets.
+`openssl rand -hex 32`, distincte de `CRON_SECRET` et des autres secrets. La
+page `/admin/ui` elle-même n'est pas protégée par un mot de passe (comme les
+commandes curl équivalentes, c'est le secret qui protège les données, pas
+l'accès à la page) : évitez de partager son URL inutilement.
 
 ## Déploiement sur Railway
 
@@ -240,10 +249,8 @@ app/
 
 1. Valider la séquence de test ci-dessus en local, puis en conditions Stripe
    test avant tout paiement réel.
-2. Interface minimale d'administration (plutôt que des commandes curl sur
-   `/admin/*`) pour gérer les comptes et activer le palier Entreprise.
-3. Alertes Slack / webhook configurable par utilisateur, en complément de
+2. Alertes Slack / webhook configurable par utilisateur, en complément de
    l'alerte email déjà en place.
-4. Vérifier un domaine propre dans Resend pour que les emails (alertes et
+3. Vérifier un domaine propre dans Resend pour que les emails (alertes et
    réinitialisation de mot de passe) puissent atteindre de vrais clients, pas
    seulement l'adresse du compte Resend.

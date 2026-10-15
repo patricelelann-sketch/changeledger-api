@@ -10,9 +10,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from . import auth, billing, crud, models, notifier, schemas
+from .admin_ui import ADMIN_UI_HTML
 from .analyzer import analyze_change
 from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EXPIRE_MINUTES
 from .database import Base, engine, get_db
@@ -129,6 +131,15 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 # Protégé par ADMIN_SECRET (en-tête X-Admin-Secret), sur le même principe que CRON_SECRET
 # pour /check-all. Sert notamment à activer manuellement le palier Entreprise après un
 # contact commercial, puisqu'il n'est pas proposé en self-service Stripe.
+
+@app.get("/admin/ui", response_class=HTMLResponse, include_in_schema=False)
+def admin_ui():
+    """Petite interface web (liste des comptes + changement de palier), en remplacement
+    des commandes curl sur /admin/*. Pas de protection sur la page elle-même : le secret
+    admin est saisi dans le navigateur et envoyé en en-tête à chaque appel API, exactement
+    comme pour les commandes curl équivalentes."""
+    return ADMIN_UI_HTML
+
 
 @app.get("/admin/users", response_model=list[schemas.UserOut], dependencies=[Depends(auth.verify_admin_secret)])
 def admin_list_users(db: Session = Depends(get_db)):
