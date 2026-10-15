@@ -146,9 +146,14 @@ nouvelle demande via `/auth/forgot-password`).
 
 1. Créez un compte sur [Resend](https://resend.com) (un plan gratuit suffit pour démarrer).
 2. Vérifiez un domaine d'envoi (onglet "Domains") — Resend exige un domaine vérifié
-   pour envoyer autre chose qu'à votre propre adresse de test.
+   pour envoyer autre chose qu'à votre propre adresse de test (sinon seule l'adresse
+   du compte Resend peut recevoir des emails, via `onboarding@resend.dev`). Un
+   sous-domaine dédié (ex. `mail.votre-domaine.fr`) est recommandé plutôt que le
+   domaine racine, pour ne pas interférer avec une éventuelle configuration email existante.
+   Pour ChangeLedger : domaine `mail.changeledger.io` vérifié (DNS chez Hostinger).
 3. Créez une clé API et copiez-la dans `RESEND_API_KEY`.
-4. Renseignez `ALERT_FROM_EMAIL` avec une adresse de ce domaine (ex. `alertes@votre-domaine.fr`).
+4. Renseignez `ALERT_FROM_EMAIL` avec une adresse de ce domaine (ex.
+   `alertes@mail.changeledger.io`).
 5. Si `RESEND_API_KEY` n'est pas définie, les alertes sont simplement désactivées — la
    détection de changement continue de fonctionner normalement, sans email envoyé.
 
@@ -251,6 +256,3 @@ app/
    test avant tout paiement réel.
 2. Alertes Slack / webhook configurable par utilisateur, en complément de
    l'alerte email déjà en place.
-3. Vérifier un domaine propre dans Resend pour que les emails (alertes et
-   réinitialisation de mot de passe) puissent atteindre de vrais clients, pas
-   seulement l'adresse du compte Resend.
