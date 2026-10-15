@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from . import auth, billing, crud, models, schemas
+from . import auth, billing, crud, models, notifier, schemas
 from .analyzer import analyze_change
 from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL
 from .database import Base, engine, get_db
@@ -225,6 +225,8 @@ async def _check_one(db: Session, source: models.Source) -> schemas.CheckResult:
         severity=analysis.get("severity", "attention"),
         summary=analysis.get("summary", ""),
     )
+    if change.severity in (models.ChangeSeverity.urgent, models.ChangeSeverity.attention):
+        notifier.send_change_alert(source.owner.email, source, change)
     return schemas.CheckResult(
         source_id=source.id,
         changed=True,

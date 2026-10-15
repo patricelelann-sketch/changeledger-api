@@ -21,9 +21,11 @@ Inclus (V1 + V2) :
 - Détection de changement (diff texte), filtrage des changements triviaux
 - Classification + résumé de l'impact via l'API Anthropic (Claude)
 - Historique consultable des changements détectés
+- Alerte automatique par email au propriétaire du compte dès qu'un changement de
+  sévérité "urgent" ou "attention" est détecté sur une de ses sources (via Resend)
 
 Volontairement hors périmètre, à construire ensuite :
-- Alertes automatiques par email / Slack / webhook
+- Alertes Slack / webhook configurable par utilisateur (l'email est couvert, pas ces canaux)
 - Import de PDF et de contrats signés (seules les pages web texte/HTML sont supportées pour l'instant)
 - Frontend (cette V2 reste une API pure ; les URLs de retour Stripe pointent
   par défaut vers `/docs` faute de frontend dédié)
@@ -114,6 +116,21 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
    l'endpoint protégé `POST /admin/users/plan` (voir section "Administration"
    ci-dessous) après un contact commercial.
 
+## Configuration des alertes email
+
+1. Créez un compte sur [Resend](https://resend.com) (un plan gratuit suffit pour démarrer).
+2. Vérifiez un domaine d'envoi (onglet "Domains") — Resend exige un domaine vérifié
+   pour envoyer autre chose qu'à votre propre adresse de test.
+3. Créez une clé API et copiez-la dans `RESEND_API_KEY`.
+4. Renseignez `ALERT_FROM_EMAIL` avec une adresse de ce domaine (ex. `alertes@votre-domaine.fr`).
+5. Si `RESEND_API_KEY` n'est pas définie, les alertes sont simplement désactivées — la
+   détection de changement continue de fonctionner normalement, sans email envoyé.
+
+Un email est envoyé au propriétaire du compte (son adresse de connexion) dès qu'un
+changement de sévérité "urgent" ou "attention" est détecté sur une de ses sources —
+que ce soit via une vérification manuelle (`/sources/{id}/check`) ou automatique
+(`/check-all`). Les changements "info" ne déclenchent pas d'alerte.
+
 ## Administration
 
 Deux endpoints protégés par un secret partagé (`ADMIN_SECRET`, à fournir dans
@@ -144,8 +161,9 @@ de changer le palier de n'importe quel compte. Générez une vraie valeur avec
    URL SQLite ou une adresse interne d'un autre service par erreur).
 5. Ajoutez aussi : `ANTHROPIC_API_KEY`, `JWT_SECRET_KEY` et `ADMIN_SECRET`
    (chacune générée avec `openssl rand -hex 32`, jamais la valeur par défaut du
-   code, et distincte de leur équivalent en local), et les variables Stripe si
-   la facturation doit être active en production.
+   code, et distincte de leur équivalent en local), les variables Stripe si la
+   facturation doit être active en production, et `RESEND_API_KEY` /
+   `ALERT_FROM_EMAIL` si les alertes email doivent être actives en production.
 6. Railway détecte `requirements.txt` et `Procfile` automatiquement (via Nixpacks)
    et démarre `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 7. **Base de données existante** : si le service tournait déjà en V1 (sans
@@ -188,6 +206,8 @@ app/
 
 1. Valider la séquence de test ci-dessus en local, puis en conditions Stripe
    test avant tout paiement réel.
-2. Brancher les alertes (email via un fournisseur type Resend/Postmark, ou
-   webhook Slack) sur un changement détecté avec `severity` "urgent" ou "attention".
-3. Réinitialisation de mot de passe (actuellement absente).
+2. Réinitialisation de mot de passe (actuellement absente).
+3. Interface minimale d'administration (plutôt que des commandes curl sur
+   `/admin/*`) pour gérer les comptes et activer le palier Entreprise.
+4. Alertes Slack / webhook configurable par utilisateur, en complément de
+   l'alerte email déjà en place.

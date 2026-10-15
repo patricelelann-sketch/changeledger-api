@@ -33,6 +33,13 @@ CRON_SECRET = os.getenv("CRON_SECRET")
 # les endpoints /admin/* refusent tout appel (403).
 ADMIN_SECRET = os.getenv("ADMIN_SECRET")
 
+# --- Alertes email (via l'API HTTP de Resend : https://resend.com) ---
+# Si RESEND_API_KEY n'est pas définie, les alertes sont simplement désactivées
+# (aucun email envoyé, mais la détection de changement continue de fonctionner normalement).
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+# Adresse expéditrice des alertes. Doit appartenir à un domaine vérifié dans Resend.
+ALERT_FROM_EMAIL = os.getenv("ALERT_FROM_EMAIL", "alerts@changeledger.app")
+
 # --- Stripe ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
