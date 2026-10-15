@@ -26,6 +26,13 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))  # 7 jours pa
 # Si non défini, /check-all reste ouvert sans protection (pratique en dev local).
 CRON_SECRET = os.getenv("CRON_SECRET")
 
+# --- Administration ---
+# Secret partagé à fournir dans l'en-tête "X-Admin-Secret" pour appeler les endpoints /admin/*
+# (notamment l'activation manuelle du palier Entreprise après contact commercial).
+# Contrairement à CRON_SECRET, pas de mode "ouvert" : si ADMIN_SECRET n'est pas défini,
+# les endpoints /admin/* refusent tout appel (403).
+ADMIN_SECRET = os.getenv("ADMIN_SECRET")
+
 # --- Stripe ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")

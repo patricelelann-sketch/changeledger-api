@@ -84,6 +84,14 @@ curl -s -X POST $BASE/billing/checkout -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" -d '{"plan": "essentiel"}'
 # → ouvre l'URL "checkout_url" renvoyée dans un navigateur pour payer en mode test
 # (numéro de carte de test Stripe : 4242 4242 4242 4242, toute date future, tout CVC)
+
+# 5. (Si ADMIN_SECRET configuré) Activer manuellement le palier Entreprise pour ce compte :
+curl -s -X POST $BASE/admin/users/plan -H "Content-Type: application/json" \
+  -H "X-Admin-Secret: $ADMIN_SECRET" \
+  -d '{"email": "test@example.com", "plan": "entreprise"}'
+
+# Lister tous les comptes (utile en administration courante, sans passer par la base) :
+curl -s $BASE/admin/users -H "X-Admin-Secret: $ADMIN_SECRET"
 ```
 
 Si l'appel à Claude échoue (clé API absente ou invalide), le changement est quand
@@ -102,9 +110,27 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
    écoutant au minimum `checkout.session.completed`,
    `customer.subscription.updated` et `customer.subscription.deleted`. Copiez
    le secret de signature (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
-5. Le palier **Entreprise** n'a pas de prix Stripe : il s'active en modifiant
-   directement la colonne `plan` de l'utilisateur en base (pas d'interface
-   d'administration pour l'instant — prochaine étape logique).
+5. Le palier **Entreprise** n'a pas de prix Stripe : il s'active manuellement via
+   l'endpoint protégé `POST /admin/users/plan` (voir section "Administration"
+   ci-dessous) après un contact commercial.
+
+## Administration
+
+Deux endpoints protégés par un secret partagé (`ADMIN_SECRET`, à fournir dans
+l'en-tête `X-Admin-Secret`) permettent de gérer les comptes sans passer par la
+console Postgres de Railway :
+
+- `GET /admin/users` — liste tous les comptes (email, palier, statut d'abonnement).
+- `POST /admin/users/plan` — change le palier d'un compte, identifié par son
+  email. C'est le moyen normal d'activer le palier **Entreprise** après un
+  contact commercial (il n'y a pas de paiement en ligne pour ce palier) :
+  `{"email": "client@exemple.com", "plan": "entreprise"}`.
+
+Contrairement à `CRON_SECRET`, `ADMIN_SECRET` n'a pas de mode "ouvert" : si la
+variable n'est pas définie, ces deux endpoints refusent systématiquement
+l'appel (403) plutôt que de rester accessibles sans protection — ils permettent
+de changer le palier de n'importe quel compte. Générez une vraie valeur avec
+`openssl rand -hex 32`, distincte de `CRON_SECRET` et des autres secrets.
 
 ## Déploiement sur Railway
 
@@ -116,9 +142,10 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
 4. Dans les Variables du service API, ajoutez son `DATABASE_URL` en copiant la
    valeur depuis l'onglet Variables **du service Postgres** (ne pas saisir une
    URL SQLite ou une adresse interne d'un autre service par erreur).
-5. Ajoutez aussi : `ANTHROPIC_API_KEY`, `JWT_SECRET_KEY` (générée avec
-   `openssl rand -hex 32`, jamais la valeur par défaut du code), et les
-   variables Stripe si la facturation doit être active en production.
+5. Ajoutez aussi : `ANTHROPIC_API_KEY`, `JWT_SECRET_KEY` et `ADMIN_SECRET`
+   (chacune générée avec `openssl rand -hex 32`, jamais la valeur par défaut du
+   code, et distincte de leur équivalent en local), et les variables Stripe si
+   la facturation doit être active en production.
 6. Railway détecte `requirements.txt` et `Procfile` automatiquement (via Nixpacks)
    et démarre `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 7. **Base de données existante** : si le service tournait déjà en V1 (sans
@@ -161,8 +188,6 @@ app/
 
 1. Valider la séquence de test ci-dessus en local, puis en conditions Stripe
    test avant tout paiement réel.
-2. Interface minimale d'administration pour activer le palier Entreprise
-   (ou a minima un endpoint protégé par un secret admin).
-3. Brancher les alertes (email via un fournisseur type Resend/Postmark, ou
+2. Brancher les alertes (email via un fournisseur type Resend/Postmark, ou
    webhook Slack) sur un changement détecté avec `severity` "urgent" ou "attention".
-4. Réinitialisation de mot de passe (actuellement absente).
+3. Réinitialisation de mot de passe (actuellement absente).

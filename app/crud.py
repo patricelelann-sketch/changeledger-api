@@ -50,6 +50,21 @@ def update_subscription(
     return user
 
 
+def list_users(db: Session) -> list[models.User]:
+    """Tous les comptes — utilisé par l'endpoint d'administration /admin/users."""
+    return db.query(models.User).order_by(models.User.created_at.desc()).all()
+
+
+def set_plan(db: Session, user: models.User, plan: str) -> models.User:
+    """Change manuellement le palier d'un utilisateur (ex. activation Entreprise après
+    contact commercial). Ne touche pas aux champs Stripe : utile aussi bien pour un compte
+    sans abonnement Stripe (Entreprise) que pour corriger ponctuellement un palier existant."""
+    user.plan = plan
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 # --- Sources (scopées à un utilisateur) ---
 
 def create_source(db: Session, user_id: str, supplier_name: str, label: Optional[str], url: str) -> models.Source:

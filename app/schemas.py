@@ -39,6 +39,21 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+# --- Administration ---
+
+class AdminSetPlanRequest(BaseModel):
+    email: EmailStr
+    plan: str  # "none" | "essentiel" | "pro" | "entreprise"
+
+    @field_validator("plan")
+    @classmethod
+    def plan_must_be_valid(cls, v: str) -> str:
+        valid = {"none", "essentiel", "pro", "entreprise"}
+        if v not in valid:
+            raise ValueError(f"Palier invalide. Valeurs possibles : {', '.join(sorted(valid))}.")
+        return v
+
+
 # --- Facturation ---
 
 class CheckoutRequest(BaseModel):

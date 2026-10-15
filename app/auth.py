@@ -8,7 +8,7 @@ import bcrypt
 from sqlalchemy.orm import Session
 
 from . import crud, models
-from .config import CRON_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET_KEY
+from .config import ADMIN_SECRET, CRON_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET_KEY
 from .database import get_db
 
 def hash_password(password: str) -> str:
@@ -57,3 +57,19 @@ def verify_cron_secret(x_cron_secret: Optional[str] = Header(default=None)) -> N
     """Protège /check-all : si CRON_SECRET est défini, l'en-tête X-Cron-Secret doit correspondre."""
     if CRON_SECRET and x_cron_secret != CRON_SECRET:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Secret de cron invalide ou manquant.")
+
+
+def verify_admin_secret(x_admin_secret: Optional[str] = Header(default=None)) -> None:
+    """Protège les endpoints /admin/* : l'en-tête X-Admin-Secret doit correspondre à ADMIN_SECRET.
+
+    Contrairement à verify_cron_secret, il n'y a pas de mode "ouvert" : si ADMIN_SECRET
+    n'est pas configuré, les endpoints admin refusent tout appel (403) plutôt que de rester
+    accessibles sans protection — ils permettent de changer le palier de n'importe quel compte.
+    """
+    if not ADMIN_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administration désactivée (ADMIN_SECRET non configuré).",
+        )
+    if x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Secret d'administration invalide ou manquant.")

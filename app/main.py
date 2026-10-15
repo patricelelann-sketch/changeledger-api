@@ -99,6 +99,28 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     return {"received": True}
 
 
+# --- Administration ---
+# Protégé par ADMIN_SECRET (en-tête X-Admin-Secret), sur le même principe que CRON_SECRET
+# pour /check-all. Sert notamment à activer manuellement le palier Entreprise après un
+# contact commercial, puisqu'il n'est pas proposé en self-service Stripe.
+
+@app.get("/admin/users", response_model=list[schemas.UserOut], dependencies=[Depends(auth.verify_admin_secret)])
+def admin_list_users(db: Session = Depends(get_db)):
+    """Liste tous les comptes, pour éviter de passer par la console Postgres de Railway."""
+    return crud.list_users(db)
+
+
+@app.post(
+    "/admin/users/plan", response_model=schemas.UserOut, dependencies=[Depends(auth.verify_admin_secret)]
+)
+def admin_set_plan(payload: schemas.AdminSetPlanRequest, db: Session = Depends(get_db)):
+    """Change manuellement le palier d'un utilisateur identifié par son email."""
+    user = crud.get_user_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Aucun compte avec cet email.")
+    return crud.set_plan(db, user, payload.plan)
+
+
 # --- Sources (scopées à l'utilisateur connecté) ---
 
 @app.post("/sources", response_model=schemas.SourceOut)
