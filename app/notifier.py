@@ -46,8 +46,8 @@ def send_change_alert(to_email: str, source: models.Source, change: models.Chang
         pass
 
 
-def send_password_reset_email(to_email: str, token: str) -> None:
-    """Envoie le jeton de réinitialisation de mot de passe par email.
+def send_password_reset_email(to_email: str, reset_link: str) -> None:
+    """Envoie le lien de réinitialisation de mot de passe par email.
 
     Même logique de repli que send_change_alert : une erreur d'envoi ne doit jamais
     faire échouer bruyamment /auth/forgot-password (qui répond toujours un message
@@ -58,9 +58,10 @@ def send_password_reset_email(to_email: str, token: str) -> None:
     subject = "[ChangeLedger] Réinitialisation de votre mot de passe"
     html = (
         "<p>Vous avez demandé la réinitialisation de votre mot de passe ChangeLedger.</p>"
-        f"<p>Utilisez ce code pour le réinitialiser (valable {PASSWORD_RESET_EXPIRE_MINUTES} minutes) "
-        f"avec l'endpoint <code>POST /auth/reset-password</code> :</p>"
-        f"<p><code>{token}</code></p>"
+        f"<p><a href=\"{reset_link}\">Cliquez ici pour choisir un nouveau mot de passe</a> "
+        f"(valable {PASSWORD_RESET_EXPIRE_MINUTES} minutes).</p>"
+        "<p>Si le lien ne fonctionne pas, copiez-collez cette adresse dans votre navigateur :<br>"
+        f"<code>{reset_link}</code></p>"
         "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email : "
         "votre mot de passe ne sera pas modifié.</p>"
     )

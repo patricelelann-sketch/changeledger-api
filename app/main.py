@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from . import auth, billing, crud, models, notifier, schemas
 from .admin_ui import ADMIN_UI_HTML
+from .app_ui import APP_UI_HTML
 from .analyzer import analyze_change
 from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EXPIRE_MINUTES
 from .database import Base, engine, get_db
@@ -42,6 +43,12 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/app", response_class=HTMLResponse, include_in_schema=False)
+def frontend_app():
+    """Frontend minimal (inscription/connexion, sources, changements, compte)."""
+    return APP_UI_HTML
+
+
 # --- Authentification ---
 
 @app.post("/auth/signup", response_model=schemas.UserOut, status_code=201)
@@ -66,8 +73,10 @@ def read_me(current_user: models.User = Depends(auth.get_current_user)):
 
 
 @app.post("/auth/forgot-password")
-def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
-    """Déclenche l'envoi d'un jeton de réinitialisation si le compte existe.
+def forgot_password(
+    payload: schemas.ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)
+):
+    """Déclenche l'envoi d'un lien de réinitialisation si le compte existe.
 
     Répond toujours le même message générique, que l'email corresponde à un compte ou non,
     pour ne pas permettre de découvrir quels emails sont inscrits (énumération de comptes).
@@ -77,8 +86,10 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
         token = auth.create_reset_token()
         expires_at = datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
         crud.set_reset_token(db, user, token, expires_at)
-        notifier.send_password_reset_email(user.email, token)
-    return {"message": "Si un compte existe avec cet email, un code de réinitialisation a été envoyé."}
+        base_url = str(request.base_url).rstrip("/")
+        reset_link = f"{base_url}/app?token={token}"
+        notifier.send_password_reset_email(user.email, reset_link)
+    return {"message": "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé."}
 
 
 @app.post("/auth/reset-password")
@@ -125,7 +136,7 @@ def create_checkout(
 @app.get("/billing/portal", response_model=schemas.PortalResponse)
 def billing_portal(request: Request, current_user: models.User = Depends(auth.get_current_user)):
     base_url = str(request.base_url).rstrip("/")
-    url = billing.create_portal_session(current_user, return_url=base_url + "/docs")
+    url = billing.create_portal_session(current_user, return_url=base_url + "/app")
     return schemas.PortalResponse(portal_url=url)
 
 

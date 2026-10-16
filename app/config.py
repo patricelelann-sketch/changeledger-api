@@ -48,7 +48,7 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 STRIPE_PRICE_ESSENTIEL = os.getenv("STRIPE_PRICE_ESSENTIEL")
 STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO")
-# URLs de redirection après le paiement Stripe Checkout (pas encore de frontend :
-# pointent par défaut vers la documentation interactive de l'API).
-CHECKOUT_SUCCESS_URL = os.getenv("CHECKOUT_SUCCESS_URL", "/docs?checkout=success")
-CHECKOUT_CANCEL_URL = os.getenv("CHECKOUT_CANCEL_URL", "/docs?checkout=cancel")
+# URLs de redirection après le paiement Stripe Checkout : pointent par défaut vers
+# le frontend (onglet Compte, qui affiche un message de succès/annulation).
+CHECKOUT_SUCCESS_URL = os.getenv("CHECKOUT_SUCCESS_URL", "/app?checkout=success")
+CHECKOUT_CANCEL_URL = os.getenv("CHECKOUT_CANCEL_URL", "/app?checkout=cancel")
