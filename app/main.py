@@ -10,7 +10,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from . import auth, billing, crud, models, notifier, schemas
@@ -37,6 +40,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Limitation de débit (en mémoire, par IP) sur les endpoints d'authentification exposés
+# sans secret ni session — cibles naturelles de spam de comptes, force brute, ou bombardement
+# d'emails de réinitialisation. En mémoire : suffisant tant que l'API tourne sur une seule
+# instance Railway (pas de stockage partagé type Redis pour l'instant).
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Trop de tentatives. Réessaie dans quelques instants."},
+    )
+
 
 @app.get("/health")
 def health():
@@ -52,7 +70,8 @@ def frontend_app():
 # --- Authentification ---
 
 @app.post("/auth/signup", response_model=schemas.UserOut, status_code=201)
-def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def signup(payload: schemas.UserCreate, request: Request, db: Session = Depends(get_db)):
     if crud.get_user_by_email(db, payload.email):
         raise HTTPException(status_code=409, detail="Un compte existe déjà avec cet email.")
     user = crud.create_user(db, payload.email, auth.hash_password(payload.password))
@@ -60,7 +79,8 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/login", response_model=schemas.Token)
-def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(payload: schemas.UserLogin, request: Request, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, payload.email)
     if not user or not auth.verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect.")
@@ -73,6 +93,7 @@ def read_me(current_user: models.User = Depends(auth.get_current_user)):
 
 
 @app.post("/auth/forgot-password")
+@limiter.limit("5/hour")
 def forgot_password(
     payload: schemas.ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)
 ):
