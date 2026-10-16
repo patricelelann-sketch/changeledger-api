@@ -230,6 +230,19 @@ def admin_set_plan(payload: schemas.AdminSetPlanRequest, db: Session = Depends(g
     return crud.set_plan(db, user, payload.plan)
 
 
+@app.delete("/admin/users", dependencies=[Depends(auth.verify_admin_secret)])
+def admin_delete_user(payload: schemas.AdminDeleteUserRequest, db: Session = Depends(get_db)):
+    """Supprime définitivement un compte (et ses sources/changements) identifié par son email —
+    pour nettoyer un compte de test, ou répondre à une demande de suppression de compte (droit
+    RGPD à l'effacement). Ne touche pas à Stripe : pense à annuler/supprimer séparément
+    l'abonnement ou le client côté Stripe si besoin."""
+    user = crud.get_user_by_email(db, payload.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Aucun compte avec cet email.")
+    crud.delete_user(db, user)
+    return {"message": f"Compte {payload.email} supprimé."}
+
+
 # --- Sources (scopées à l'utilisateur connecté) ---
 
 @app.post("/sources", response_model=schemas.SourceOut)

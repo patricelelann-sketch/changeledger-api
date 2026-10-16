@@ -32,6 +32,8 @@ ADMIN_UI_HTML = """<!doctype html>
   button:hover { background: #374151; }
   button.secondary { background: white; color: #111827; border: 1px solid #d1d5db; }
   button.secondary:hover { background: #f3f4f6; }
+  button.danger { background: white; color: #b91c1c; border: 1px solid #fca5a5; }
+  button.danger:hover { background: #fef2f2; }
   table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem; }
   th { color: #6b7280; font-weight: 600; }
@@ -148,6 +150,7 @@ function renderUsers(users) {
         <span class="plan-form">
           <select data-email="${escapeHtml(user.email)}">${planOptions}</select>
           <button class="secondary" data-email="${escapeHtml(user.email)}">Enregistrer</button>
+          <button class="danger" data-delete-email="${escapeHtml(user.email)}">Supprimer</button>
         </span>
       </td>
     `;
@@ -160,6 +163,37 @@ function renderUsers(users) {
       setPlan(email, select.value);
     });
   });
+  body.querySelectorAll("button[data-delete-email]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const email = btn.getAttribute("data-delete-email");
+      if (confirm(`Supprimer définitivement le compte ${email} et toutes ses données (sources, changements) ? Cette action est irréversible.`)) {
+        deleteUser(email);
+      }
+    });
+  });
+}
+
+async function deleteUser(email) {
+  setMessage("Suppression de " + email + "...", "");
+  try {
+    const res = await fetch("/admin/users", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Secret": getSecret(),
+      },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setMessage("Échec : " + (body.detail || res.status), "error");
+      return;
+    }
+    setMessage(email + " a été supprimé.", "success");
+    loadUsers();
+  } catch (err) {
+    setMessage("Impossible de contacter l'API : " + err, "error");
+  }
 }
 
 async function setPlan(email, plan) {

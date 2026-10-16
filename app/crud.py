@@ -66,6 +66,16 @@ def set_plan(db: Session, user: models.User, plan: str) -> models.User:
     return user
 
 
+def delete_user(db: Session, user: models.User) -> None:
+    """Supprime définitivement un compte et toutes ses données associées (sources, snapshots,
+    changements), via la cascade ORM définie sur User.sources. Utilisé pour nettoyer un compte
+    de test, ou pour répondre à une demande de suppression de compte (droit RGPD à l'effacement).
+    Ne touche pas à Stripe : annuler/supprimer séparément l'abonnement ou le client côté Stripe
+    si besoin."""
+    db.delete(user)
+    db.commit()
+
+
 def set_reset_token(db: Session, user: models.User, token: str, expires_at: datetime) -> models.User:
     user.reset_token = token
     user.reset_token_expires_at = expires_at

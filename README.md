@@ -241,18 +241,23 @@ qu'à votre propre API), et utilisez le tableau pour consulter ou modifier un
 compte. C'est le moyen normal d'activer le palier **Entreprise** après un
 contact commercial (il n'y a pas de paiement en ligne pour ce palier).
 
-Elle s'appuie sur deux endpoints JSON, protégés par un secret partagé
+Elle s'appuie sur trois endpoints JSON, protégés par un secret partagé
 (`ADMIN_SECRET`, à fournir dans l'en-tête `X-Admin-Secret`) — toujours
 utilisables directement si besoin (scripts, automatisation) :
 
 - `GET /admin/users` — liste tous les comptes (email, palier, statut d'abonnement).
 - `POST /admin/users/plan` — change le palier d'un compte, identifié par son
   email : `{"email": "client@exemple.com", "plan": "entreprise"}`.
+- `DELETE /admin/users` — supprime définitivement un compte et toutes ses données
+  (sources, changements), identifié par son email : `{"email": "client@exemple.com"}`.
+  Utile pour nettoyer un compte de test, ou répondre à une demande de suppression de
+  compte (droit RGPD à l'effacement). Ne touche pas à Stripe : annulez/supprimez
+  séparément l'abonnement ou le client côté Stripe si besoin.
 
 Contrairement à `CRON_SECRET`, `ADMIN_SECRET` n'a pas de mode "ouvert" : si la
-variable n'est pas définie, ces deux endpoints refusent systématiquement
+variable n'est pas définie, ces trois endpoints refusent systématiquement
 l'appel (403) plutôt que de rester accessibles sans protection — ils permettent
-de changer le palier de n'importe quel compte. Générez une vraie valeur avec
+de changer le palier, ou de supprimer, n'importe quel compte. Générez une vraie valeur avec
 `openssl rand -hex 32`, distincte de `CRON_SECRET` et des autres secrets. La
 page `/admin/ui` elle-même n'est pas protégée par un mot de passe (comme les
 commandes curl équivalentes, c'est le secret qui protège les données, pas

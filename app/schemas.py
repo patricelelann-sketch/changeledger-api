@@ -85,6 +85,10 @@ class AdminSetPlanRequest(BaseModel):
         return v
 
 
+class AdminDeleteUserRequest(BaseModel):
+    email: EmailStr
+
+
 # --- Facturation ---
 
 class CheckoutRequest(BaseModel):
