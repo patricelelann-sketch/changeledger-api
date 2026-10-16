@@ -20,6 +20,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from . import auth, billing, crud, models, notifier, schemas
 from .admin_ui import ADMIN_UI_HTML
 from .app_ui import APP_UI_HTML
+from .legal_pages import CGU_HTML, CGV_HTML, PRIVACY_HTML
 from .analyzer import analyze_change
 from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EXPIRE_MINUTES
 from .database import Base, engine, get_db
@@ -73,6 +74,24 @@ def health():
 def frontend_app():
     """Frontend minimal (inscription/connexion, sources, changements, compte)."""
     return APP_UI_HTML
+
+
+@app.get("/legal/cgu", response_class=HTMLResponse, include_in_schema=False)
+def legal_cgu():
+    """Conditions générales d'utilisation."""
+    return CGU_HTML
+
+
+@app.get("/legal/cgv", response_class=HTMLResponse, include_in_schema=False)
+def legal_cgv():
+    """Conditions générales de vente."""
+    return CGV_HTML
+
+
+@app.get("/legal/confidentialite", response_class=HTMLResponse, include_in_schema=False)
+def legal_confidentialite():
+    """Politique de confidentialité (RGPD)."""
+    return PRIVACY_HTML
 
 
 # --- Authentification ---
@@ -158,7 +177,9 @@ def create_checkout(
     base_url = str(request.base_url).rstrip("/")
     success_url = CHECKOUT_SUCCESS_URL if CHECKOUT_SUCCESS_URL.startswith("http") else base_url + CHECKOUT_SUCCESS_URL
     cancel_url = CHECKOUT_CANCEL_URL if CHECKOUT_CANCEL_URL.startswith("http") else base_url + CHECKOUT_CANCEL_URL
-    url = billing.create_checkout_session(current_user, payload.plan, success_url, cancel_url)
+    url = billing.create_checkout_session(
+        current_user, payload.plan, payload.cycle, success_url, cancel_url
+    )
     return schemas.CheckoutResponse(checkout_url=url)
 
 

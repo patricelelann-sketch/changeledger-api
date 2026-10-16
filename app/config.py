@@ -46,8 +46,12 @@ ALERT_FROM_EMAIL = os.getenv("ALERT_FROM_EMAIL", "alerts@changeledger.app")
 # --- Stripe ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_PRICE_ESSENTIEL = os.getenv("STRIPE_PRICE_ESSENTIEL")
-STRIPE_PRICE_PRO = os.getenv("STRIPE_PRICE_PRO")
+# Un prix Stripe distinct par palier ET par cycle de facturation (mensuel/annuel),
+# pour laisser le client choisir sa périodicité à la souscription.
+STRIPE_PRICE_ESSENTIEL_MONTHLY = os.getenv("STRIPE_PRICE_ESSENTIEL_MONTHLY")
+STRIPE_PRICE_ESSENTIEL_ANNUAL = os.getenv("STRIPE_PRICE_ESSENTIEL_ANNUAL")
+STRIPE_PRICE_PRO_MONTHLY = os.getenv("STRIPE_PRICE_PRO_MONTHLY")
+STRIPE_PRICE_PRO_ANNUAL = os.getenv("STRIPE_PRICE_PRO_ANNUAL")
 # URLs de redirection après le paiement Stripe Checkout : pointent par défaut vers
 # le frontend (onglet Compte, qui affiche un message de succès/annulation).
 CHECKOUT_SUCCESS_URL = os.getenv("CHECKOUT_SUCCESS_URL", "/app?checkout=success")

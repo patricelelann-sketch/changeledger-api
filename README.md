@@ -14,8 +14,9 @@ Inclus (V1 + V2) :
 - Trois paliers d'abonnement : **Essentiel** (5 sources), **Pro** (25 sources),
   **Entreprise** (illimité, activé manuellement après contact commercial — pas
   de paiement en ligne pour ce palier)
-- Paiement par abonnement via Stripe Checkout (Essentiel/Pro) + portail client
-  Stripe pour gérer/annuler l'abonnement
+- Paiement par abonnement via Stripe Checkout (Essentiel/Pro), mensuel ou annuel
+  au choix, avec 14 jours d'essai (carte bancaire enregistrée dès l'inscription), +
+  portail client Stripe pour gérer/annuler l'abonnement
 - Ajouter / lister / supprimer une source à surveiller (URL)
 - Déclencher une vérification manuelle, ou groupée pour toutes les sources
   (endpoint système `/check-all`, protégé par un secret de cron)
@@ -31,10 +32,11 @@ Inclus (V1 + V2) :
   mot de passe) — voir la section dédiée ci-dessous
 - Limitation de débit (par IP) sur les endpoints d'authentification exposés sans secret
   ni session (`/auth/signup`, `/auth/login`, `/auth/forgot-password`)
+- CGU, CGV et politique de confidentialité (`/legal/cgu`, `/legal/cgv`,
+  `/legal/confidentialite`), liées depuis le frontend — voir la section dédiée ci-dessous
 
 Volontairement hors périmètre, à construire ensuite :
 - Import de PDF et de contrats signés (seules les pages web texte/HTML sont supportées pour l'instant)
-- CGU / CGV / politique de confidentialité
 - Passage de Stripe en mode live (reste en mode test pour l'instant)
 
 ## Installation locale
@@ -93,10 +95,10 @@ curl -s -X POST $BASE/sources/<ID>/check -H "Authorization: Bearer $TOKEN"
 # Consulter l'historique (uniquement les sources de cet utilisateur)
 curl -s $BASE/changes -H "Authorization: Bearer $TOKEN"
 
-# 4. (Si STRIPE_SECRET_KEY et STRIPE_PRICE_ESSENTIEL configurés en mode test)
-# Démarrer un paiement Checkout pour le palier Essentiel :
+# 4. (Si STRIPE_SECRET_KEY et STRIPE_PRICE_ESSENTIEL_MONTHLY configurés en mode test)
+# Démarrer un paiement Checkout pour le palier Essentiel, cycle mensuel ou annuel :
 curl -s -X POST $BASE/billing/checkout -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" -d '{"plan": "essentiel"}'
+  -H "Authorization: Bearer $TOKEN" -d '{"plan": "essentiel", "cycle": "monthly"}'
 # → ouvre l'URL "checkout_url" renvoyée dans un navigateur pour payer en mode test
 # (numéro de carte de test Stripe : 4242 4242 4242 4242, toute date future, tout CVC)
 
@@ -117,9 +119,10 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
 
 1. Créez un compte Stripe (ou utilisez votre compte existant), **en mode test**
    pour commencer.
-2. Créez deux produits avec un prix récurrent mensuel : "Essentiel" et "Pro".
-   Copiez leur **Price ID** (`price_...`) dans `STRIPE_PRICE_ESSENTIEL` et
-   `STRIPE_PRICE_PRO`.
+2. Créez deux produits, "Essentiel" et "Pro", chacun avec **deux prix récurrents** :
+   un mensuel et un annuel. Copiez les 4 **Price ID** (`price_...`) dans
+   `STRIPE_PRICE_ESSENTIEL_MONTHLY`, `STRIPE_PRICE_ESSENTIEL_ANNUAL`,
+   `STRIPE_PRICE_PRO_MONTHLY` et `STRIPE_PRICE_PRO_ANNUAL`.
 3. Copiez la clé secrète (`sk_test_...` en mode test) dans `STRIPE_SECRET_KEY`.
 4. Créez un endpoint webhook pointant vers `<votre URL>/billing/webhook`,
    écoutant au minimum `checkout.session.completed`,
@@ -128,6 +131,10 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
 5. Le palier **Entreprise** n'a pas de prix Stripe : il s'active manuellement via
    l'endpoint protégé `POST /admin/users/plan` (voir section "Administration"
    ci-dessous) après un contact commercial.
+6. La période d'essai de 14 jours (`TRIAL_PERIOD_DAYS` dans `app/billing.py`) est gérée en
+   code via `subscription_data.trial_period_days` sur la session Checkout : rien à configurer
+   côté Stripe pour chaque prix. Pendant l'essai, le statut renvoyé par l'API/le frontend est
+   `trialing` ; Stripe prélève automatiquement à l'issue des 14 jours, sauf annulation.
 
 ## Réinitialisation de mot de passe
 
@@ -203,6 +210,26 @@ navigateur (persistant, cohérent avec sa durée de vie de 7 jours côté API).
 
 Les URLs de retour Stripe (succès/annulation de paiement, portail client) pointent par
 défaut vers `/app` plutôt que `/docs`.
+
+## Mentions légales / CGU / CGV / confidentialité
+
+Trois pages statiques, servies par l'API comme `/app` et `/admin/ui` (HTML inline, pas
+de dépendance de build) :
+
+- `GET /legal/cgu` — conditions générales d'utilisation
+- `GET /legal/cgv` — conditions générales de vente (clientèle B2B uniquement, pas de
+  droit de rétractation)
+- `GET /legal/confidentialite` — politique de confidentialité RGPD (sous-traitants :
+  Anthropic, Stripe, Resend, Railway)
+
+Le contenu (`app/legal_pages.py`) reflète la structure donnée par l'éditeur : service
+exploité par **ITEC FRANCE** (SAS, RCS Paris 921 573 051), la marque et le SaaS
+ChangeLedger restant la propriété personnelle de Patrice Le Lann, concédés en licence à
+ITEC FRANCE pour la France. **C'est un premier brouillon : à faire relire par un
+professionnel (avocat ou service juridique en ligne) avant toute utilisation réelle,
+en particulier avant le passage de Stripe en mode live** — notamment la formalisation de
+la licence de marque, et le décalage entre le code APE d'ITEC FRANCE (gestion de fonds)
+et l'activité réellement exercée (édition de SaaS).
 
 ## Administration
 
@@ -286,6 +313,7 @@ app/
   billing.py     → intégration Stripe (Checkout, portail client, webhook)
   notifier.py    → alertes email (Resend) et webhook de changement
   app_ui.py      → page HTML du frontend client (/app)
+  legal_pages.py → pages HTML CGU / CGV / politique de confidentialité
   admin_ui.py    → page HTML de l'interface d'administration (/admin/ui)
   models.py      → modèles de base de données (User, Source, Snapshot, Change)
   schemas.py     → schémas Pydantic (requêtes/réponses)
@@ -299,5 +327,6 @@ app/
 
 ## Prochaines étapes suggérées
 
-1. CGU / CGV / politique de confidentialité, nécessaires avant tout paiement réel.
-2. Passage de Stripe en mode live, une fois les CGU/CGV en place.
+1. Faire relire les CGU/CGV/politique de confidentialité par un professionnel, et
+   formaliser la licence de marque entre Patrice Le Lann et ITEC FRANCE.
+2. Passage de Stripe en mode live, une fois les CGU/CGV validées.

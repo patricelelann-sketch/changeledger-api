@@ -89,6 +89,7 @@ class AdminSetPlanRequest(BaseModel):
 
 class CheckoutRequest(BaseModel):
     plan: str  # "essentiel" | "pro"
+    cycle: str = "monthly"  # "monthly" | "annual"
 
 
 class CheckoutResponse(BaseModel):

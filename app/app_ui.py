@@ -68,6 +68,10 @@ APP_UI_HTML = """<!doctype html>
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-start; }
   .row > * { margin-bottom: 0; }
   .links { font-size: 0.9rem; margin-top: 0.8rem; }
+  .legal-footer { max-width: 760px; margin: 2rem auto 1rem; padding: 0 1rem; text-align: center; font-size: 0.8rem; color: #6b7280; }
+  .legal-footer a { color: #6b7280; }
+  .consent-note { font-size: 0.8rem; color: #6b7280; margin-top: 0.6rem; }
+  .consent-note a { color: inherit; }
 
   .msg { margin: 0.6rem 0; font-size: 0.9rem; min-height: 1.2em; }
   .msg.error { color: #b91c1c; }
@@ -134,9 +138,14 @@ APP_UI_HTML = """<!doctype html>
 
     <div id="signupForm" class="hidden">
       <h2>Créer un compte</h2>
+      <p class="muted">Réservé aux professionnels (entreprises, indépendants, associations).</p>
       <input id="signupEmail" type="email" placeholder="Email" autocomplete="username">
       <input id="signupPassword" type="password" placeholder="Mot de passe (8 caractères min.)" autocomplete="new-password">
       <button onclick="signup()" style="width:100%">Créer mon compte</button>
+      <p class="consent-note">En créant un compte, tu acceptes les
+        <a href="/legal/cgu" target="_blank">CGU</a>, les
+        <a href="/legal/cgv" target="_blank">CGV</a> et la
+        <a href="/legal/confidentialite" target="_blank">politique de confidentialité</a>.</p>
       <p class="links"><a href="#" onclick="showAuthSubview('login'); return false;">J'ai déjà un compte</a></p>
       <div class="msg" id="signupMsg"></div>
     </div>
@@ -205,6 +214,7 @@ APP_UI_HTML = """<!doctype html>
       <h2>Mon compte</h2>
       <p><strong id="accountEmail"></strong></p>
       <p class="muted">Palier actuel : <strong id="accountPlan"></strong> — Abonnement : <span id="accountStatus"></span></p>
+      <p class="muted" id="trialNote" style="display:none">Essai en cours — surveillance active sur tes sources, tu seras alerté dès qu'un changement est détecté. La carte enregistrée sera débitée automatiquement à la fin de l'essai, sauf annulation.</p>
       <div class="row" id="billingActions"></div>
       <div class="msg" id="billingMsg"></div>
     </div>
@@ -232,12 +242,19 @@ APP_UI_HTML = """<!doctype html>
 
 </main>
 
+<footer class="legal-footer">
+  ChangeLedger — <a href="/legal/cgu" target="_blank">CGU</a> ·
+  <a href="/legal/cgv" target="_blank">CGV</a> ·
+  <a href="/legal/confidentialite" target="_blank">Politique de confidentialité</a>
+</footer>
+
 <script>
 const TOKEN_KEY = "changeledger_token";
 const PLAN_LABELS = { none: "Aucun", essentiel: "Essentiel", pro: "Pro", entreprise: "Entreprise" };
 const PLAN_LIMITS = { none: 0, essentiel: 5, pro: 25, entreprise: null };
 const CATEGORY_LABELS = { tarif: "Tarif", resiliation: "Résiliation", paiement: "Paiement", responsabilite: "Responsabilité", autre: "Autre" };
 const SEVERITY_LABELS = { urgent: "Urgent", attention: "À vérifier", info: "Info" };
+const STATUS_LABELS = { trialing: "Essai en cours", active: "Actif", past_due: "Paiement en retard", canceled: "Annulé" };
 
 let currentUser = null;
 let sources = [];
@@ -579,7 +596,10 @@ function renderAccount() {
   if (!currentUser) return;
   document.getElementById("accountEmail").textContent = currentUser.email;
   document.getElementById("accountPlan").textContent = PLAN_LABELS[currentUser.plan] || currentUser.plan;
-  document.getElementById("accountStatus").textContent = currentUser.subscription_status || "—";
+  document.getElementById("accountStatus").textContent =
+    STATUS_LABELS[currentUser.subscription_status] || currentUser.subscription_status || "—";
+  document.getElementById("trialNote").style.display =
+    currentUser.subscription_status === "trialing" ? "block" : "none";
   document.getElementById("webhookUrl").value = currentUser.webhook_url || "";
 
   const actions = document.getElementById("billingActions");
@@ -592,25 +612,33 @@ function renderAccount() {
     btn.onclick = openPortal;
     actions.appendChild(btn);
   } else {
+    const cycleWrap = document.createElement("div");
+    cycleWrap.style.marginBottom = "0.6rem";
+    cycleWrap.innerHTML =
+      '<label style="margin-right:1rem"><input type="radio" name="billingCycle" value="monthly" checked> Mensuel</label>' +
+      '<label><input type="radio" name="billingCycle" value="annual"> Annuel</label>';
+    const getCycle = () =>
+      (cycleWrap.querySelector('input[name="billingCycle"]:checked') || {}).value || "monthly";
     const essentielBtn = document.createElement("button");
     essentielBtn.textContent = "Passer au palier Essentiel";
-    essentielBtn.onclick = () => startCheckout("essentiel");
+    essentielBtn.onclick = () => startCheckout("essentiel", getCycle());
     const proBtn = document.createElement("button");
     proBtn.textContent = "Passer au palier Pro";
     proBtn.className = "secondary";
-    proBtn.onclick = () => startCheckout("pro");
+    proBtn.onclick = () => startCheckout("pro", getCycle());
+    actions.appendChild(cycleWrap);
     actions.appendChild(essentielBtn);
     actions.appendChild(proBtn);
   }
 }
 
-async function startCheckout(plan) {
+async function startCheckout(plan, cycle) {
   setMsg("billingMsg", "Redirection vers le paiement...", "");
   try {
     const res = await apiFetch("/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, cycle }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(extractErrorMessage(body));

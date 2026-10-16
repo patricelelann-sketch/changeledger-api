@@ -6,17 +6,26 @@ from fastapi import HTTPException
 
 from . import crud, models
 from .config import (
-    STRIPE_PRICE_ESSENTIEL,
-    STRIPE_PRICE_PRO,
+    STRIPE_PRICE_ESSENTIEL_ANNUAL,
+    STRIPE_PRICE_ESSENTIEL_MONTHLY,
+    STRIPE_PRICE_PRO_ANNUAL,
+    STRIPE_PRICE_PRO_MONTHLY,
     STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET,
 )
 
 stripe.api_key = STRIPE_SECRET_KEY
 
+# Période d'essai (en jours) accordée à toute souscription Essentiel/Pro. La carte bancaire
+# est demandée dès l'inscription (Stripe Checkout standard) ; Stripe facture automatiquement
+# à l'issue de l'essai sauf annulation. Choisie à 14 jours pour laisser le temps à un premier
+# changement réel d'être détecté sur les sources surveillées.
+TRIAL_PERIOD_DAYS = 14
+
+# Un prix Stripe par palier ET par cycle de facturation (mensuel/annuel).
 PRICE_BY_PLAN = {
-    "essentiel": STRIPE_PRICE_ESSENTIEL,
-    "pro": STRIPE_PRICE_PRO,
+    "essentiel": {"monthly": STRIPE_PRICE_ESSENTIEL_MONTHLY, "annual": STRIPE_PRICE_ESSENTIEL_ANNUAL},
+    "pro": {"monthly": STRIPE_PRICE_PRO_MONTHLY, "annual": STRIPE_PRICE_PRO_ANNUAL},
 }
 
 
@@ -28,14 +37,18 @@ def _require_stripe_configured() -> None:
         )
 
 
-def create_checkout_session(user: models.User, plan: str, success_url: str, cancel_url: str) -> str:
-    """Crée une session Stripe Checkout pour un palier (essentiel ou pro) et renvoie son URL."""
+def create_checkout_session(
+    user: models.User, plan: str, cycle: str, success_url: str, cancel_url: str
+) -> str:
+    """Crée une session Stripe Checkout pour un palier + cycle (mensuel/annuel) et renvoie son URL."""
     _require_stripe_configured()
-    price_id = PRICE_BY_PLAN.get(plan)
+    cycle = cycle if cycle in ("monthly", "annual") else "monthly"
+    price_id = PRICE_BY_PLAN.get(plan, {}).get(cycle)
     if not price_id:
         raise HTTPException(
             status_code=400,
-            detail="Palier inconnu ou non disponible en self-service (attendu : essentiel ou pro).",
+            detail="Palier ou cycle de facturation inconnu, ou non disponible en self-service "
+            "(palier attendu : essentiel ou pro ; cycle attendu : monthly ou annual).",
         )
 
     session_kwargs = {
@@ -44,7 +57,8 @@ def create_checkout_session(user: models.User, plan: str, success_url: str, canc
         "success_url": success_url,
         "cancel_url": cancel_url,
         "client_reference_id": user.id,
-        "metadata": {"user_id": user.id, "plan": plan},
+        "metadata": {"user_id": user.id, "plan": plan, "cycle": cycle},
+        "subscription_data": {"trial_period_days": TRIAL_PERIOD_DAYS},
     }
     if user.stripe_customer_id:
         session_kwargs["customer"] = user.stripe_customer_id
@@ -92,7 +106,16 @@ def handle_webhook_event(db, event) -> None:
             return
         if customer_id and not user.stripe_customer_id:
             crud.set_user_stripe_customer(db, user, customer_id)
-        crud.update_subscription(db, user, plan or user.plan, subscription_id, "active")
+        # Le statut réel (p. ex. "trialing" pendant la période d'essai, "active" sinon) est
+        # récupéré auprès de Stripe plutôt que figé à "active" : avec l'essai de 14 jours, la
+        # souscription créée au checkout est "trialing", pas "active".
+        status = "active"
+        if subscription_id:
+            try:
+                status = stripe.Subscription.retrieve(subscription_id).status
+            except stripe.error.StripeError:
+                pass
+        crud.update_subscription(db, user, plan or user.plan, subscription_id, status)
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
         customer_id = data.get("customer")
