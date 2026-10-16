@@ -37,7 +37,6 @@ Inclus (V1 + V2) :
 
 Volontairement hors périmètre, à construire ensuite :
 - Import de PDF et de contrats signés (seules les pages web texte/HTML sont supportées pour l'instant)
-- Passage de Stripe en mode live (reste en mode test pour l'instant)
 
 ## Installation locale
 
@@ -330,8 +329,18 @@ app/
   crud.py        → opérations de base de données
 ```
 
+## Stripe en mode live
+
+Depuis le 17 octobre 2026, le service `web` sur Railway utilise les clés et webhook **live**
+de Stripe (compte `changeledger.io`, activé) : `STRIPE_SECRET_KEY` (clé restreinte `rk_live_...`,
+"Accès complet, à l'exception des opérations sensibles"), `STRIPE_WEBHOOK_SECRET` (endpoint
+"ChangeLedger production"), et les 4 `STRIPE_PRICE_...` en versions live (Essentiel 29€/mois ou
+290€/an, Pro 59€/mois ou 590€/an). Validé de bout en bout avec une vraie carte (essai de 14 jours,
+donc sans prélèvement immédiat). Le mode test reste disponible en parallèle sur le même compte
+Stripe pour les futurs développements, sans toucher au live.
+
 ## Prochaines étapes suggérées
 
 1. Faire relire les CGU/CGV/politique de confidentialité par un professionnel, et
    formaliser la licence de marque entre Patrice Le Lann et ITEC FRANCE.
-2. Passage de Stripe en mode live, une fois les CGU/CGV validées.
+2. Habiller le frontend (logo, charte graphique) avant un lancement public.
