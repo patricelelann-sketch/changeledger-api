@@ -15,6 +15,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import auth, billing, crud, models, notifier, schemas
 from .admin_ui import ADMIN_UI_HTML
@@ -39,6 +40,13 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+# Fait confiance aux en-têtes X-Forwarded-For/X-Forwarded-Proto envoyés par le proxy de
+# Railway, pour que request.client.host (utilisé par la limitation de débit ci-dessous)
+# reflète la vraie IP du client plutôt que l'IP interne du réseau de Railway. Configuré en
+# code plutôt que via le flag --proxy-headers du Procfile, pour éviter tout souci
+# d'interprétation des guillemets selon la façon dont la commande est exécutée.
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # Limitation de débit (en mémoire, par IP) sur les endpoints d'authentification exposés
 # sans secret ni session — cibles naturelles de spam de comptes, force brute, ou bombardement
