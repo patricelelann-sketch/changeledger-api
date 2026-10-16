@@ -26,11 +26,16 @@ Inclus (V1 + V2) :
   sévérité "urgent" ou "attention" est détecté sur une de ses sources (via Resend)
 - Webhook optionnel configurable par chaque utilisateur (self-service), reçoit une
   copie de chaque alerte en plus de l'email — compatible Slack Incoming Webhook
+- Frontend minimal (`GET /app`) : inscription/connexion, gestion des sources et
+  consultation de l'historique des changements, compte (palier, facturation, webhook,
+  mot de passe) — voir la section dédiée ci-dessous
+- Limitation de débit (par IP) sur les endpoints d'authentification exposés sans secret
+  ni session (`/auth/signup`, `/auth/login`, `/auth/forgot-password`)
 
 Volontairement hors périmètre, à construire ensuite :
 - Import de PDF et de contrats signés (seules les pages web texte/HTML sont supportées pour l'instant)
-- Frontend (cette V2 reste une API pure ; les URLs de retour Stripe pointent
-  par défaut vers `/docs` faute de frontend dédié)
+- CGU / CGV / politique de confidentialité
+- Passage de Stripe en mode live (reste en mode test pour l'instant)
 
 ## Installation locale
 
@@ -186,6 +191,19 @@ les receveurs génériques (Zapier, système interne...). Même logique de repli
 les autres alertes : un échec d'envoi (URL injoignable, webhook supprimé côté
 destinataire) n'interrompt jamais la détection de changement elle-même.
 
+## Frontend
+
+Une page unique, `GET /app`, sert de parcours client complet : inscription/connexion,
+tableau de bord (ajout/suppression de sources, vérification manuelle, historique des
+changements détectés avec leur diff), et compte (palier actuel, lien vers Stripe Checkout
+ou le portail client selon le palier, configuration du webhook personnel, réinitialisation
+de mot de passe). Autonome comme `/admin/ui` : HTML/CSS/JS inline, aucune dépendance de
+build, servie directement par l'API. Le jeton JWT est stocké dans `localStorage` du
+navigateur (persistant, cohérent avec sa durée de vie de 7 jours côté API).
+
+Les URLs de retour Stripe (succès/annulation de paiement, portail client) pointent par
+défaut vers `/app` plutôt que `/docs`.
+
 ## Administration
 
 Une petite interface web, `GET /admin/ui`, permet de lister les comptes et de
@@ -266,6 +284,9 @@ app/
   main.py        → routes de l'API (auth, facturation, sources, changements)
   auth.py        → hashage de mot de passe, JWT, dépendance d'utilisateur courant
   billing.py     → intégration Stripe (Checkout, portail client, webhook)
+  notifier.py    → alertes email (Resend) et webhook de changement
+  app_ui.py      → page HTML du frontend client (/app)
+  admin_ui.py    → page HTML de l'interface d'administration (/admin/ui)
   models.py      → modèles de base de données (User, Source, Snapshot, Change)
   schemas.py     → schémas Pydantic (requêtes/réponses)
   database.py    → configuration SQLAlchemy
@@ -278,7 +299,5 @@ app/
 
 ## Prochaines étapes suggérées
 
-1. Valider la séquence de test ci-dessus en local, puis en conditions Stripe
-   test avant tout paiement réel.
-2. Alertes Slack / webhook configurable par utilisateur, en complément de
-   l'alerte email déjà en place.
+1. CGU / CGV / politique de confidentialité, nécessaires avant tout paiement réel.
+2. Passage de Stripe en mode live, une fois les CGU/CGV en place.
