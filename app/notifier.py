@@ -76,6 +76,47 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
         pass
 
 
+def send_welcome_email(to_email: str, app_url: str) -> None:
+    """Envoie un email de bienvenue à la création d'un compte.
+
+    Rappelle les grandes lignes du service et renvoie vers l'application — le nouveau
+    compte est toujours au palier "Aucun" à ce stade (aucune source possible avant de
+    souscrire), donc l'email inclut un rappel explicite et un lien vers la page Compte
+    plutôt qu'un état d'abonnement à afficher. Même logique de repli que les autres
+    fonctions de ce module : un échec d'envoi ne doit jamais faire échouer l'inscription.
+    """
+    if not RESEND_API_KEY:
+        return
+    subject = "Bienvenue sur ChangeLedger"
+    html = (
+        "<p>Bienvenue sur ChangeLedger !</p>"
+        "<p>ChangeLedger surveille pour toi les conditions de tes fournisseurs (CGV, "
+        "grilles tarifaires, contrats accessibles en ligne) : dès qu'un changement est "
+        "détecté, il est classé par catégorie et sévérité, résumé en langage clair, et "
+        "tu reçois une alerte par email (et, si tu le souhaites, sur un webhook Slack, "
+        "Zapier ou maison).</p>"
+        "<p>Pour commencer :</p>"
+        "<ol>"
+        "<li>Choisis un palier (Essentiel ou Pro) depuis l'onglet 'Compte' — un essai "
+        "de 14 jours est inclus, résiliable à tout moment.</li>"
+        "<li>Ajoute les pages à surveiller depuis l'onglet 'Sources'.</li>"
+        "<li>C'est tout : ChangeLedger s'occupe du reste.</li>"
+        "</ol>"
+        f"<p><a href='{app_url}/app'>Accéder à mon compte</a></p>"
+        "<p style='color:#6b7280;font-size:0.9em'>Des questions ? Réponds simplement à "
+        "cet email.</p>"
+    )
+    try:
+        httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json={"from": ALERT_FROM_EMAIL, "to": [to_email], "subject": subject, "html": html},
+            timeout=10,
+        )
+    except Exception:  # noqa: BLE001 - un échec d'envoi ne doit jamais bloquer l'inscription
+        pass
+
+
 def send_change_webhook(webhook_url, source: models.Source, change: models.Change) -> None:
     """Envoie une alerte de changement sur le webhook configuré par l'utilisateur
     (Slack, Zapier, système interne...), en complément de l'email.

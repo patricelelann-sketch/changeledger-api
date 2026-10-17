@@ -23,6 +23,8 @@ Inclus (V1 + V2) :
 - Détection de changement (diff texte), filtrage des changements triviaux
 - Classification + résumé de l'impact via l'API Anthropic (Claude)
 - Historique consultable des changements détectés
+- Email de bienvenue à l'inscription (présentation du service, rappel pour choisir un
+  palier, lien vers l'application — via Resend)
 - Alerte automatique par email au propriétaire du compte dès qu'un changement de
   sévérité "urgent" ou "attention" est détecté sur une de ses sources (via Resend)
 - Webhook optionnel configurable par chaque utilisateur (self-service), reçoit une

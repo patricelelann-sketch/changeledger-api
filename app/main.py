@@ -102,6 +102,8 @@ def signup(payload: schemas.UserCreate, request: Request, db: Session = Depends(
     if crud.get_user_by_email(db, payload.email):
         raise HTTPException(status_code=409, detail="Un compte existe déjà avec cet email.")
     user = crud.create_user(db, payload.email, auth.hash_password(payload.password))
+    base_url = str(request.base_url).rstrip("/")
+    notifier.send_welcome_email(user.email, base_url)
     return user
 
 
