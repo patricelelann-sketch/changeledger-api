@@ -13,19 +13,24 @@ app_ui.py : aucune dépendance de build, servi directement par l'API.
 """
 
 LEGAL_STYLE = """
-  :root { color-scheme: light dark; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; line-height: 1.65;
-    color: #1f2937; background: #ffffff;
+  :root {
+    color-scheme: light dark;
+    --cl-accent: #4B3FF2;
+    --cl-ink: #12131A;
   }
-  h1 { font-size: 1.6rem; margin-bottom: 0.3rem; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; line-height: 1.65;
+    color: var(--cl-ink); background: #ffffff;
+  }
+  h1, h2, h3 { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 500; }
+  h1 { font-size: 1.6rem; margin-bottom: 0.3rem; font-weight: 700; }
   h2 { font-size: 1.15rem; margin-top: 2.2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; }
   h3 { font-size: 1rem; margin-top: 1.4rem; }
   p, li { font-size: 0.95rem; }
   .muted { color: #6b7280; font-size: 0.88rem; }
   nav.legal-nav { display: flex; gap: 1rem; margin: 1rem 0 2rem; font-size: 0.9rem; flex-wrap: wrap; }
-  nav.legal-nav a { color: #2563eb; text-decoration: none; }
+  nav.legal-nav a { color: var(--cl-accent); text-decoration: none; }
   nav.legal-nav a:hover { text-decoration: underline; }
   nav.legal-nav a.back { color: #6b7280; }
   table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
@@ -48,6 +53,7 @@ CGU_HTML = f"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChangeLedger — Conditions générales d'utilisation</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{LEGAL_STYLE}</style>
 </head>
 <body>
@@ -163,6 +169,7 @@ CGV_HTML = f"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChangeLedger — Conditions générales de vente</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{LEGAL_STYLE}</style>
 </head>
 <body>
@@ -256,6 +263,7 @@ PRIVACY_HTML = f"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChangeLedger — Politique de confidentialité</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{LEGAL_STYLE}</style>
 </head>
 <body>

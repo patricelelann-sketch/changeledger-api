@@ -14,6 +14,32 @@ SEVERITY_LABELS = {
     "info": "Info",
 }
 
+# Identité visuelle ChangeLedger, reprise dans les emails (cohérente avec app_ui.py,
+# admin_ui.py et legal_pages.py) : accent violet de marque + typographie système
+# (les polices web ne sont pas fiables dans les clients email).
+BRAND_ACCENT = "#4B3FF2"
+BRAND_INK = "#12131A"
+EMAIL_FONT = "-apple-system, BlinkMacSystemFont, \'Segoe UI\', Helvetica, Arial, sans-serif"
+
+
+def _wrap_email(body_html: str) -> str:
+    """Enveloppe le contenu d'un email dans l'habillage ChangeLedger (logo, couleurs)."""
+    return (
+        f'<div style="font-family: {EMAIL_FONT}; color: {BRAND_INK}; max-width: 520px; margin: 0 auto;">'
+        f'<div style="font-size: 20px; font-weight: 700; margin-bottom: 20px;">'
+        f'Change<span style="color: {BRAND_ACCENT}">Ledger</span></div>'
+        f'{body_html}'
+        '</div>'
+    )
+
+
+def _email_button(href: str, label: str) -> str:
+    return (
+        f'<p><a href="{href}" style="display: inline-block; padding: 11px 20px; '
+        f'background: {BRAND_ACCENT}; color: #ffffff; border-radius: 6px; '
+        f'font-weight: 600; text-decoration: none;">{label}</a></p>'
+    )
+
 
 def send_change_alert(to_email: str, source: models.Source, change: models.Change) -> None:
     """Envoie un email d'alerte pour un changement détecté chez un fournisseur surveillé.
@@ -29,11 +55,11 @@ def send_change_alert(to_email: str, source: models.Source, change: models.Chang
     severity_value = change.severity.value if hasattr(change.severity, "value") else change.severity
     label = SEVERITY_LABELS.get(severity_value, severity_value)
     subject = f"[ChangeLedger] {label} — changement détecté chez {source.supplier_name}"
-    html = (
-        f"<p><strong>{label}</strong> sur <strong>{source.supplier_name}</strong>"
+    html = _wrap_email(
+        f"<p><strong style=\"color: {BRAND_ACCENT}\">{label}</strong> sur <strong>{source.supplier_name}</strong>"
         f" ({source.label or 'source surveillée'}) :</p>"
         f"<p>{change.summary or 'Changement détecté (résumé indisponible).'}</p>"
-        f"<p><a href=\"{source.url}\">Voir la source</a></p>"
+        + _email_button(source.url, "Voir la source")
     )
     try:
         httpx.post(
@@ -56,11 +82,11 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
     if not RESEND_API_KEY:
         return
     subject = "[ChangeLedger] Réinitialisation de votre mot de passe"
-    html = (
+    html = _wrap_email(
         "<p>Vous avez demandé la réinitialisation de votre mot de passe ChangeLedger.</p>"
-        f"<p><a href=\"{reset_link}\">Cliquez ici pour choisir un nouveau mot de passe</a> "
-        f"(valable {PASSWORD_RESET_EXPIRE_MINUTES} minutes).</p>"
-        "<p>Si le lien ne fonctionne pas, copiez-collez cette adresse dans votre navigateur :<br>"
+        + _email_button(reset_link, "Choisir un nouveau mot de passe")
+        + f"<p style=\"font-size: 0.9em; color: #5B5E6B\">Valable {PASSWORD_RESET_EXPIRE_MINUTES} minutes. "
+        "Si le bouton ne fonctionne pas, copiez-collez cette adresse dans votre navigateur :<br>"
         f"<code>{reset_link}</code></p>"
         "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email : "
         "votre mot de passe ne sera pas modifié.</p>"
@@ -88,7 +114,7 @@ def send_welcome_email(to_email: str, app_url: str) -> None:
     if not RESEND_API_KEY:
         return
     subject = "Bienvenue sur ChangeLedger"
-    html = (
+    html = _wrap_email(
         "<p>Bienvenue sur ChangeLedger !</p>"
         "<p>ChangeLedger surveille pour toi les conditions de tes fournisseurs (CGV, "
         "grilles tarifaires, contrats accessibles en ligne) : dès qu'un changement est "
@@ -102,8 +128,8 @@ def send_welcome_email(to_email: str, app_url: str) -> None:
         "<li>Ajoute les pages à surveiller depuis l'onglet 'Sources'.</li>"
         "<li>C'est tout : ChangeLedger s'occupe du reste.</li>"
         "</ol>"
-        f"<p><a href='{app_url}/app'>Accéder à mon compte</a></p>"
-        "<p style='color:#6b7280;font-size:0.9em'>Des questions ? Réponds simplement à "
+        + _email_button(f"{app_url}/app", "Accéder à mon compte")
+        + "<p style='color:#8A8D99;font-size:0.9em'>Des questions ? Réponds simplement à "
         "cet email.</p>"
     )
     try:

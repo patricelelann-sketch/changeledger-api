@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -27,6 +27,17 @@ from .database import Base, engine, get_db
 from .differ import compute_diff, content_hash
 from .fetcher import fetch_text
 from .models import PLAN_LIMITS
+
+# Favicon : version compacte du wordmark (monogramme "C"), même couleur d'accent
+# de marque que l'app, l'admin et les pages légales (app_ui.py, admin_ui.py,
+# legal_pages.py, notifier.py).
+FAVICON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+    '<rect width="64" height="64" rx="14" fill="#4B3FF2"/>'
+    '<text x="32" y="43" font-family="\'Space Grotesk\', system-ui, sans-serif" '
+    'font-size="34" font-weight="700" fill="#FFFFFF" text-anchor="middle">C</text>'
+    '</svg>'
+)
 
 
 @asynccontextmanager
@@ -68,6 +79,11 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+def favicon():
+    return Response(content=FAVICON_SVG, media_type="image/svg+xml")
 
 
 @app.get("/app", response_class=HTMLResponse, include_in_schema=False)

@@ -14,29 +14,40 @@ APP_UI_HTML = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChangeLedger</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: light dark;
+    --cl-accent: #4B3FF2;
+    --cl-accent-dark: #3A30C2;
+    --cl-ink: #12131A;
+    --cl-surface: #F6F7FB;
+  }
   * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    margin: 0; padding: 0; line-height: 1.5; color: #111827; background: #f9fafb;
+    font-family: \'Plus Jakarta Sans\', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0; padding: 0; line-height: 1.5; color: var(--cl-ink); background: var(--cl-surface);
   }
   .hidden { display: none !important; }
-  a { color: #2563eb; text-decoration: none; }
+  a { color: var(--cl-accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  h1, h2, .brand { font-family: \'Space Grotesk\', system-ui, sans-serif; }
+  .accent { color: var(--cl-accent); }
 
   /* --- Barre du haut (visible une fois connecté) --- */
   #topbar {
     display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.25rem;
     background: white; border-bottom: 1px solid #e5e7eb;
   }
-  #topbar .brand { font-weight: 700; font-size: 1.1rem; margin-right: auto; }
+  #topbar .brand { font-weight: 700; font-size: 1.15rem; margin-right: auto; }
   #topbar nav { display: flex; gap: 0.4rem; }
   .tab {
     background: none; border: none; padding: 0.4rem 0.8rem; border-radius: 6px;
-    cursor: pointer; font-size: 0.9rem; color: #4b5563;
+    cursor: pointer; font-size: 0.9rem; color: #4b5563; font-family: inherit;
   }
-  .tab.active { background: #111827; color: white; }
+  .tab.active { background: var(--cl-accent); color: white; }
 
   main { max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
 
@@ -56,11 +67,12 @@ APP_UI_HTML = """<!doctype html>
   }
   input, select, textarea { width: 100%; margin-bottom: 0.6rem; background: white; color: inherit; }
   button {
-    background: #111827; color: white; border: none; cursor: pointer; white-space: nowrap;
+    background: var(--cl-accent); color: white; border: none; cursor: pointer; white-space: nowrap;
+    font-family: inherit;
   }
-  button:hover { background: #374151; }
+  button:hover { background: var(--cl-accent-dark); }
   button:disabled { background: #9ca3af; cursor: not-allowed; }
-  button.secondary { background: white; color: #111827; border: 1px solid #d1d5db; }
+  button.secondary { background: white; color: var(--cl-ink); border: 1px solid #d1d5db; }
   button.secondary:hover { background: #f3f4f6; }
   button.danger { background: white; color: #b91c1c; border: 1px solid #fecaca; }
   button.danger:hover { background: #fef2f2; }
@@ -109,7 +121,7 @@ APP_UI_HTML = """<!doctype html>
 <body>
 
 <header id="topbar" class="hidden">
-  <div class="brand">ChangeLedger</div>
+  <div class="brand">Change<span class="accent">Ledger</span></div>
   <nav>
     <button class="tab active" data-tab="sources" onclick="showTab('sources')">Sources</button>
     <button class="tab" data-tab="account" onclick="showTab('account')">Compte</button>
@@ -120,7 +132,7 @@ APP_UI_HTML = """<!doctype html>
 <!-- ======================= Authentification ======================= -->
 <main id="authView">
   <div class="card narrow">
-    <h1>ChangeLedger</h1>
+    <h1>Change<span class="accent">Ledger</span></h1>
     <p class="muted">Veille des conditions fournisseurs (CGV, tarifs, contrats).</p>
 
     <div id="loginForm">

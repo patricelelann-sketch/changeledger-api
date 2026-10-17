@@ -32,6 +32,9 @@ Inclus (V1 + V2) :
 - Frontend minimal (`GET /app`) : inscription/connexion, gestion des sources et
   consultation de l'historique des changements, compte (palier, facturation, webhook,
   mot de passe) — voir la section dédiée ci-dessous
+- Identité visuelle (logo, palette, typographie Space Grotesk / Plus Jakarta Sans)
+  appliquée de façon cohérente sur l'app, l'administration, les pages légales, les
+  emails et le favicon (`/favicon.svg`)
 - Limitation de débit (par IP) sur les endpoints d'authentification exposés sans secret
   ni session (`/auth/signup`, `/auth/login`, `/auth/forgot-password`)
 - CGU, CGV et politique de confidentialité (`/legal/cgu`, `/legal/cgv`,

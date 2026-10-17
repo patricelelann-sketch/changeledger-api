@@ -13,13 +13,21 @@ ADMIN_UI_HTML = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChangeLedger — Administration</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5;
+  :root {
+    color-scheme: light dark;
+    --cl-accent: #4B3FF2;
+    --cl-accent-dark: #3A30C2;
+    --cl-ink: #12131A;
   }
-  h1 { font-size: 1.4rem; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: var(--cl-ink);
+  }
+  h1 { font-size: 1.4rem; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; }
   .muted { color: #6b7280; font-size: 0.9rem; }
   .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 1rem 0; }
   input, select, button {
@@ -27,10 +35,10 @@ ADMIN_UI_HTML = """<!doctype html>
     border: 1px solid #d1d5db;
   }
   button {
-    background: #111827; color: white; border: none; cursor: pointer;
+    background: var(--cl-accent); color: white; border: none; cursor: pointer; font-family: inherit;
   }
-  button:hover { background: #374151; }
-  button.secondary { background: white; color: #111827; border: 1px solid #d1d5db; }
+  button:hover { background: var(--cl-accent-dark); }
+  button.secondary { background: white; color: var(--cl-ink); border: 1px solid #d1d5db; }
   button.secondary:hover { background: #f3f4f6; }
   button.danger { background: white; color: #b91c1c; border: 1px solid #fca5a5; }
   button.danger:hover { background: #fef2f2; }
