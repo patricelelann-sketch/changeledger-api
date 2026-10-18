@@ -20,6 +20,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from . import auth, billing, crud, models, notifier, schemas
 from .admin_ui import ADMIN_UI_HTML
 from .app_ui import APP_UI_HTML
+from .landing_page import LANDING_HTML
 from .legal_pages import CGU_HTML, CGV_HTML, PRIVACY_HTML
 from .analyzer import analyze_change
 from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EXPIRE_MINUTES
@@ -81,10 +82,18 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/", include_in_schema=False)
-def root_redirect():
-    """Redirige la racine du domaine vers l'application (pratique pour un sous-domaine
-    dédié, ex. app.changeledger.io, qui doit tomber directement dans l'app)."""
+MARKETING_HOSTS = {"changeledger.io", "www.changeledger.io"}
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def root(request: Request):
+    """Sert la page marketing sur le domaine racine (changeledger.io) ; redirige
+    vers l'application sur tout autre domaine (app.changeledger.io, l'URL Railway,
+    etc.) — un seul service derrière les deux domaines, le routage se fait sur le
+    header Host de la requête."""
+    host = (request.headers.get("host") or "").split(":")[0].lower()
+    if host in MARKETING_HOSTS:
+        return HTMLResponse(LANDING_HTML)
     return RedirectResponse(url="/app")
 
 

@@ -35,6 +35,10 @@ Inclus (V1 + V2) :
 - Identité visuelle (logo, palette, typographie Space Grotesk / Plus Jakarta Sans)
   appliquée de façon cohérente sur l'app, l'administration, les pages légales, les
   emails et le favicon (`/favicon.svg`)
+- Page d'accueil marketing sur le domaine racine (`changeledger.io` / `www.changeledger.io`) :
+  argumentaire, tarifs, CTA d'inscription — routage par domaine (header `Host`) sur la
+  même route `/` que la redirection vers `/app` utilisée par `app.changeledger.io`,
+  voir la section dédiée ci-dessous
 - Limitation de débit (par IP) sur les endpoints d'authentification exposés sans secret
   ni session (`/auth/signup`, `/auth/login`, `/auth/forgot-password`)
 - CGU, CGV et politique de confidentialité (`/legal/cgu`, `/legal/cgv`,
@@ -215,6 +219,30 @@ navigateur (persistant, cohérent avec sa durée de vie de 7 jours côté API).
 Les URLs de retour Stripe (succès/annulation de paiement, portail client) pointent par
 défaut vers `/app` plutôt que `/docs`.
 
+## Page d'accueil marketing et domaines
+
+Deux domaines pointent vers le même service Railway, distingués par le header `Host` de
+la requête (voir la route `/` dans `main.py`) :
+
+- `changeledger.io` / `www.changeledger.io` → page d'accueil marketing (`app/landing_page.py`) :
+  argumentaire (gain de temps, détection rapide, résumé par IA, essai sans risque), public
+  cible, tarifs des paliers Essentiel/Pro, CTA vers l'inscription.
+- `app.changeledger.io` (et l'URL Railway `web-production-....up.railway.app`) → redirection
+  vers `/app`, le frontend applicatif.
+
+Les boutons "Essayer gratuitement" de la page marketing pointent vers
+`https://app.changeledger.io/app?signup=1` : ce paramètre fait ouvrir directement l'onglet
+d'inscription plutôt que celui de connexion (géré côté JS dans `app_ui.py`).
+
+Configuration DNS chez Hostinger (le domaine racine ne supportant pas un CNAME
+directement, par contrainte DNS standard) :
+- `app` → CNAME vers la valeur fournie par Railway (+ le TXT `_railway-verify.app` requis
+  pour la vérification du domaine personnalisé)
+- `www` → CNAME vers la même valeur Railway, domaine personnalisé ajouté séparément côté
+  Railway
+- `changeledger.io` (racine) → redirection de domaine chez Hostinger vers
+  `https://www.changeledger.io`
+
 ## Mentions légales / CGU / CGV / confidentialité
 
 Trois pages statiques, servies par l'API comme `/app` et `/admin/ui` (HTML inline, pas
@@ -322,6 +350,7 @@ app/
   billing.py     → intégration Stripe (Checkout, portail client, webhook)
   notifier.py    → alertes email (Resend) et webhook de changement
   app_ui.py      → page HTML du frontend client (/app)
+  landing_page.py → page d'accueil marketing (domaine racine changeledger.io)
   legal_pages.py → pages HTML CGU / CGV / politique de confidentialité
   admin_ui.py    → page HTML de l'interface d'administration (/admin/ui)
   models.py      → modèles de base de données (User, Source, Snapshot, Change)

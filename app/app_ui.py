@@ -758,14 +758,18 @@ async function applyPendingCheckoutMessage() {
     history.replaceState(null, "", window.location.pathname);
     return;
   }
+  const wantsSignup = params.get("signup") === "1";
+  if (wantsSignup) {
+    history.replaceState(null, "", window.location.pathname);
+  }
   if (getToken()) {
     afterLogin().catch(() => {
       showAuthView();
-      showAuthSubview("login");
+      showAuthSubview(wantsSignup ? "signup" : "login");
     });
   } else {
     showAuthView();
-    showAuthSubview("login");
+    showAuthSubview(wantsSignup ? "signup" : "login");
   }
 })();
 </script>
