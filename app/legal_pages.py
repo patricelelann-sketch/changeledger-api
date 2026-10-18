@@ -11,6 +11,7 @@ consommation, RGPD, et formalisation de la licence de marque entre M. Le Lann
 Autonome (HTML/CSS inline, pas de JS), dans le même esprit que admin_ui.py et
 app_ui.py : aucune dépendance de build, servi directement par l'API.
 """
+from .config import CONTACT_EMAIL
 
 LEGAL_STYLE = """
   :root {
@@ -79,7 +80,7 @@ par son Président, M. Patrice Le Lann (ci-après l'« Éditeur »).</p>
 l'exploitation à ITEC FRANCE dans le cadre d'un contrat de licence.</p>
 <p>Le Service est hébergé par Railway Corporation, 548 Market St, Suite 68956, San Francisco,
 Californie 94104, États-Unis (<a href="https://railway.com">railway.com</a>).</p>
-<p>Contact : <a href="mailto:patrice.lelann@gmail.com">patrice.lelann@gmail.com</a></p>
+<p>Contact : <a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a></p>
 
 <h2>3. Définitions</h2>
 <ul>
@@ -157,7 +158,7 @@ siège social de l'Éditeur.</p>
 
 <h2>14. Contact</h2>
 <p>Pour toute question relative aux présentes CGU :
-<a href="mailto:patrice.lelann@gmail.com">patrice.lelann@gmail.com</a></p>
+<a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a></p>
 
 </body>
 </html>
@@ -251,7 +252,7 @@ contraire.</p>
 
 <h2>10. Contact</h2>
 <p>Pour toute question relative à la facturation ou aux présentes CGV :
-<a href="mailto:patrice.lelann@gmail.com">patrice.lelann@gmail.com</a></p>
+<a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a></p>
 
 </body>
 </html>
@@ -276,7 +277,7 @@ PRIVACY_HTML = f"""<!doctype html>
 <p>Le responsable du traitement des données personnelles collectées via le service ChangeLedger
 est ITEC FRANCE, SAS au capital de 1 000 €, RCS Paris 921 573 051, 3 Rue Jacob, 75006 Paris,
 France. Pour toute question relative à vos données personnelles :
-<a href="mailto:patrice.lelann@gmail.com">patrice.lelann@gmail.com</a>.</p>
+<a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a>.</p>
 
 <h2>2. Données collectées</h2>
 <ul>
@@ -347,7 +348,7 @@ réinitialisation de mot de passe) contre les tentatives automatisées abusives.
 <h2>9. Vos droits</h2>
 <p>Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de
 limitation, de portabilité et d'opposition sur vos données personnelles. Vous pouvez exercer ces
-droits en écrivant à <a href="mailto:patrice.lelann@gmail.com">patrice.lelann@gmail.com</a>. Vous
+droits en écrivant à <a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a>. Vous
 disposez également du droit d'introduire une réclamation auprès de la Commission Nationale de
 l'Informatique et des Libertés (CNIL, <a href="https://www.cnil.fr">www.cnil.fr</a>).</p>
 

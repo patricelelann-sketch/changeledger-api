@@ -4,7 +4,7 @@ Utilise l'API HTTP de Resend (https://resend.com) via httpx, déjà une dépenda
 du projet — pas besoin d'ajouter un SDK supplémentaire.
 """
 from . import models
-from .config import ALERT_FROM_EMAIL, PASSWORD_RESET_EXPIRE_MINUTES, RESEND_API_KEY
+from .config import ALERT_FROM_EMAIL, CONTACT_EMAIL, PASSWORD_RESET_EXPIRE_MINUTES, RESEND_API_KEY
 
 import httpx
 
@@ -65,7 +65,13 @@ def send_change_alert(to_email: str, source: models.Source, change: models.Chang
         httpx.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={"from": ALERT_FROM_EMAIL, "to": [to_email], "subject": subject, "html": html},
+            json={
+                "from": ALERT_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "reply_to": CONTACT_EMAIL,
+            },
             timeout=10,
         )
     except Exception:  # noqa: BLE001 - une alerte en échec ne doit jamais bloquer la détection
@@ -95,7 +101,13 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
         httpx.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={"from": ALERT_FROM_EMAIL, "to": [to_email], "subject": subject, "html": html},
+            json={
+                "from": ALERT_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "reply_to": CONTACT_EMAIL,
+            },
             timeout=10,
         )
     except Exception:  # noqa: BLE001 - un échec d'envoi ne doit jamais bloquer le flux
@@ -136,7 +148,13 @@ def send_welcome_email(to_email: str, app_url: str) -> None:
         httpx.post(
             "https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={"from": ALERT_FROM_EMAIL, "to": [to_email], "subject": subject, "html": html},
+            json={
+                "from": ALERT_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "reply_to": CONTACT_EMAIL,
+            },
             timeout=10,
         )
     except Exception:  # noqa: BLE001 - un échec d'envoi ne doit jamais bloquer l'inscription

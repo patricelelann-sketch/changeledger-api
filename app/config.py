@@ -42,6 +42,10 @@ ADMIN_SECRET = os.getenv("ADMIN_SECRET")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 # Adresse expéditrice des alertes. Doit appartenir à un domaine vérifié dans Resend.
 ALERT_FROM_EMAIL = os.getenv("ALERT_FROM_EMAIL", "alerts@changeledger.app")
+# Adresse de contact officielle (mentions légales, reply-to des emails sortants) —
+# distincte d'ALERT_FROM_EMAIL : celle-ci est une vraie boîte surveillée, l'autre
+# une adresse technique d'envoi côté domaine vérifié Resend.
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "contact@changeledger.io")
 
 # --- Stripe ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
