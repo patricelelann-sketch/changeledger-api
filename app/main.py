@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -79,6 +79,13 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    """Redirige la racine du domaine vers l'application (pratique pour un sous-domaine
+    dédié, ex. app.changeledger.io, qui doit tomber directement dans l'app)."""
+    return RedirectResponse(url="/app")
 
 
 @app.get("/favicon.svg", include_in_schema=False)
