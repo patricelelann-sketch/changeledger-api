@@ -39,12 +39,32 @@ class PlanType(str, enum.Enum):
 
 
 # Nombre de sources surveillées autorisées par palier. None = illimité.
+# NB : 5/25 avaient été évoqués un temps puis révisés à 10/50 après étude plus poussée du
+# marché — ce sont bien 10/50 qui ont été communiqués publiquement (page marketing, tarifs
+# Stripe) ; ne pas les repasser à 5/25 sans vérifier auprès de Patrice.
 PLAN_LIMITS: dict[str, "int | None"] = {
     PlanType.none.value: 0,
-    PlanType.essentiel.value: 5,
-    PlanType.pro.value: 25,
+    PlanType.essentiel.value: 10,
+    PlanType.pro.value: 50,
     PlanType.entreprise.value: None,
 }
+
+# Taille d'une tranche supplémentaire achetable en self-service, par palier (cf. tarifs
+# Stripe "Tranche supplémentaire de N fournisseurs — mensuel/annuel"). Le palier Entreprise
+# n'a pas de tranches : ses sources sont déjà illimitées (PLAN_LIMITS[...] is None).
+TRANCHE_SIZE: dict[str, int] = {
+    PlanType.essentiel.value: 10,
+    PlanType.pro.value: 50,
+}
+
+
+def effective_limit(plan: str, extra_tranches: int) -> "int | None":
+    """Limite réelle de sources pour un utilisateur, en tenant compte des tranches
+    supplémentaires achetées. None = illimité (palier Entreprise)."""
+    base = PLAN_LIMITS.get(plan)
+    if base is None:
+        return None
+    return base + TRANCHE_SIZE.get(plan, 0) * (extra_tranches or 0)
 
 
 class User(Base):
@@ -73,7 +93,18 @@ class User(Base):
     # Self-service : l'utilisateur configure sa propre URL via PUT /auth/webhook.
     webhook_url = Column(String, nullable=True)
 
+    # Nombre de tranches supplémentaires de fournisseurs achetées en self-service (cf.
+    # TRANCHE_SIZE), en plus du quota de base du palier. Synchronisé depuis Stripe (source
+    # de vérité) à chaque paiement/màj d'abonnement — voir billing.handle_webhook_event.
+    extra_tranches = Column(Integer, default=0, nullable=False)
+
     sources = relationship("Source", back_populates="owner", cascade="all, delete-orphan")
+
+    @property
+    def sources_limit(self) -> "int | None":
+        """Limite de sources actuelle de ce compte, tranches supplémentaires incluses."""
+        plan_value = self.plan.value if hasattr(self.plan, "value") else self.plan
+        return effective_limit(plan_value, self.extra_tranches)
 
 
 class Source(Base):

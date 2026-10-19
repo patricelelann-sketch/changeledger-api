@@ -56,6 +56,12 @@ STRIPE_PRICE_ESSENTIEL_MONTHLY = os.getenv("STRIPE_PRICE_ESSENTIEL_MONTHLY")
 STRIPE_PRICE_ESSENTIEL_ANNUAL = os.getenv("STRIPE_PRICE_ESSENTIEL_ANNUAL")
 STRIPE_PRICE_PRO_MONTHLY = os.getenv("STRIPE_PRICE_PRO_MONTHLY")
 STRIPE_PRICE_PRO_ANNUAL = os.getenv("STRIPE_PRICE_PRO_ANNUAL")
+# Tranches supplémentaires de fournisseurs (self-service, en plus du quota de base du
+# palier) : un prix Stripe par palier ET par cycle, comme pour les paliers eux-mêmes.
+STRIPE_PRICE_ESSENTIEL_TRANCHE_MONTHLY = os.getenv("STRIPE_PRICE_ESSENTIEL_TRANCHE_MONTHLY")
+STRIPE_PRICE_ESSENTIEL_TRANCHE_ANNUAL = os.getenv("STRIPE_PRICE_ESSENTIEL_TRANCHE_ANNUAL")
+STRIPE_PRICE_PRO_TRANCHE_MONTHLY = os.getenv("STRIPE_PRICE_PRO_TRANCHE_MONTHLY")
+STRIPE_PRICE_PRO_TRANCHE_ANNUAL = os.getenv("STRIPE_PRICE_PRO_TRANCHE_ANNUAL")
 # URLs de redirection après le paiement Stripe Checkout : pointent par défaut vers
 # le frontend (onglet Compte, qui affiche un message de succès/annulation).
 CHECKOUT_SUCCESS_URL = os.getenv("CHECKOUT_SUCCESS_URL", "/app?checkout=success")

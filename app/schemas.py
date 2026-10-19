@@ -32,6 +32,8 @@ class UserOut(BaseModel):
     plan: str
     subscription_status: Optional[str] = None
     webhook_url: Optional[str] = None
+    extra_tranches: int = 0
+    sources_limit: Optional[int] = None  # None = illimité (palier Entreprise)
     created_at: datetime
 
 

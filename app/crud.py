@@ -51,6 +51,16 @@ def update_subscription(
     return user
 
 
+def set_extra_tranches(db: Session, user: models.User, extra_tranches: int) -> models.User:
+    """Met à jour le nombre de tranches supplémentaires de fournisseurs d'un compte — appelé
+    depuis la synchronisation webhook Stripe (source de vérité), jamais directement par le
+    client."""
+    user.extra_tranches = extra_tranches
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def list_users(db: Session) -> list[models.User]:
     """Tous les comptes — utilisé par l'endpoint d'administration /admin/users."""
     return db.query(models.User).order_by(models.User.created_at.desc()).all()

@@ -27,7 +27,6 @@ from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EX
 from .database import Base, engine, get_db
 from .differ import compute_diff, content_hash
 from .fetcher import fetch_text
-from .models import PLAN_LIMITS
 
 # Favicon : version compacte du wordmark (monogramme "C"), même couleur d'accent
 # de marque que l'app, l'admin et les pages légales (app_ui.py, admin_ui.py,
@@ -224,6 +223,18 @@ def billing_portal(request: Request, current_user: models.User = Depends(auth.ge
     return schemas.PortalResponse(portal_url=url)
 
 
+@app.post("/billing/add-tranche", response_model=schemas.UserOut)
+def add_tranche(
+    db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)
+):
+    """Ajoute une tranche supplémentaire de fournisseurs (+10 Essentiel / +50 Pro) à
+    l'abonnement en cours, facturée au prorata par Stripe. La quantité réelle est ensuite
+    resynchronisée par webhook, mais on la met aussi à jour tout de suite ici pour un retour
+    instantané côté interface."""
+    new_quantity = billing.add_tranche(current_user)
+    return crud.set_extra_tranches(db, current_user, new_quantity)
+
+
 @app.post("/billing/webhook")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
@@ -285,12 +296,13 @@ def add_source(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    limit = PLAN_LIMITS.get(current_user.plan.value if hasattr(current_user.plan, "value") else current_user.plan)
+    limit = current_user.sources_limit
     if limit is not None and crud.count_sources_for_user(db, current_user.id) >= limit:
         raise HTTPException(
             status_code=403,
             detail=f"Limite de {limit} sources atteinte pour votre palier actuel. "
-            "Passez à un palier supérieur pour en surveiller davantage.",
+            "Passez à un palier supérieur ou ajoutez une tranche supplémentaire pour en "
+            "surveiller davantage.",
         )
     return crud.create_source(db, current_user.id, payload.supplier_name, payload.label, str(payload.url))
 

@@ -11,9 +11,13 @@ Inclus (V1 + V2) :
 - Comptes utilisateurs : inscription/connexion par email + mot de passe (JWT),
   avec réinitialisation de mot de passe par email
 - Chaque source surveillée appartient à un utilisateur (multi-tenant)
-- Trois paliers d'abonnement : **Essentiel** (5 sources), **Pro** (25 sources),
+- Trois paliers d'abonnement : **Essentiel** (10 sources), **Pro** (50 sources),
   **Entreprise** (illimité, activé manuellement après contact commercial — pas
   de paiement en ligne pour ce palier)
+- Tranches supplémentaires de sources en self-service (Essentiel/Pro uniquement) :
+  +10 (Essentiel) ou +50 (Pro) sources par tranche achetée, facturées au prorata sur
+  l'abonnement en cours ; une alerte s'affiche automatiquement dans l'app dès qu'il ne
+  reste plus que 2 sources disponibles
 - Paiement par abonnement via Stripe Checkout (Essentiel/Pro), mensuel ou annuel
   au choix, avec 14 jours d'essai (carte bancaire enregistrée dès l'inscription), +
   portail client Stripe pour gérer/annuler l'abonnement
@@ -110,6 +114,13 @@ curl -s -X POST $BASE/billing/checkout -H "Content-Type: application/json" \
 # → ouvre l'URL "checkout_url" renvoyée dans un navigateur pour payer en mode test
 # (numéro de carte de test Stripe : 4242 4242 4242 4242, toute date future, tout CVC)
 
+# 4bis. (Une fois l'abonnement actif, et les 4 STRIPE_PRICE_*_TRANCHE_* configurés)
+# Ajouter une tranche supplémentaire de sources (self-service) à l'abonnement en cours :
+curl -s -X POST $BASE/billing/add-tranche -H "Authorization: Bearer $TOKEN"
+# → renvoie le compte à jour ; "sources_limit" doit avoir augmenté de 10 (Essentiel) ou
+# 50 (Pro), et "extra_tranches" de 1. Vérifier aussi côté Stripe qu'un item de tranche a
+# bien été ajouté à l'abonnement (facturé au prorata).
+
 # 5. (Si ADMIN_SECRET configuré) Activer manuellement le palier Entreprise pour ce compte :
 curl -s -X POST $BASE/admin/users/plan -H "Content-Type: application/json" \
   -H "X-Admin-Secret: $ADMIN_SECRET" \
@@ -131,6 +142,13 @@ la détection ne doit jamais se bloquer à cause d'un souci sur l'analyse IA.
    un mensuel et un annuel. Copiez les 4 **Price ID** (`price_...`) dans
    `STRIPE_PRICE_ESSENTIEL_MONTHLY`, `STRIPE_PRICE_ESSENTIEL_ANNUAL`,
    `STRIPE_PRICE_PRO_MONTHLY` et `STRIPE_PRICE_PRO_ANNUAL`.
+2bis. Sur ces deux mêmes produits, ajoutez un prix supplémentaire chacun (mensuel +
+   annuel) pour la tranche de sources self-service : "Tranche supplémentaire de 10
+   fournisseurs" sur Essentiel, "Tranche supplémentaire de 50 fournisseurs" sur Pro.
+   Copiez les 4 Price ID dans `STRIPE_PRICE_ESSENTIEL_TRANCHE_MONTHLY`,
+   `STRIPE_PRICE_ESSENTIEL_TRANCHE_ANNUAL`, `STRIPE_PRICE_PRO_TRANCHE_MONTHLY` et
+   `STRIPE_PRICE_PRO_TRANCHE_ANNUAL`. Sans ces variables, `POST /billing/add-tranche`
+   répond 503 (tarif de tranche non configuré) au lieu de planter silencieusement.
 3. Copiez la clé secrète (`sk_test_...` en mode test) dans `STRIPE_SECRET_KEY`.
 4. Créez un endpoint webhook pointant vers `<votre URL>/billing/webhook`,
    écoutant au minimum `checkout.session.completed`,
@@ -328,6 +346,10 @@ l'accès à la page) : évitez de partager son URL inutilement.
    déploiement du code qui l'utilise.
    De même pour `webhook_url` : `ALTER TABLE users ADD COLUMN webhook_url VARCHAR;`
    avant de déployer le code qui l'utilise.
+   De même pour `extra_tranches` (tranches supplémentaires de sources, self-service) :
+   `ALTER TABLE users ADD COLUMN extra_tranches INTEGER NOT NULL DEFAULT 0;` avant de
+   déployer le code qui l'utilise — sans cette colonne, l'API plantera (500) au premier
+   accès à `/auth/me` ou `/sources` une fois le nouveau code déployé.
 
 ### Planifier les vérifications automatiques
 
@@ -372,6 +394,18 @@ de Stripe (compte `changeledger.io`, activé) : `STRIPE_SECRET_KEY` (clé restre
 290€/an, Pro 59€/mois ou 590€/an). Validé de bout en bout avec une vraie carte (essai de 14 jours,
 donc sans prélèvement immédiat). Le mode test reste disponible en parallèle sur le même compte
 Stripe pour les futurs développements, sans toucher au live.
+
+**19 octobre 2026** : les limites de sources Essentiel/Pro, fixées à 5/25 au premier
+déploiement V2, ont été révisées à **10/50** après étude plus poussée du marché — ce sont ces
+derniers chiffres qui ont été communiqués publiquement (page marketing `changeledger.io`,
+description des tarifs Stripe) et qui font foi désormais (`PLAN_LIMITS` dans `models.py`).
+Quatre tarifs Stripe live supplémentaires ont été créés pour les tranches de sources
+self-service : +10 fournisseurs sur Essentiel (15€/mois ou 150€/an), +50 sur Pro
+(49€/mois ou 490€/an). Leurs Price ID doivent être renseignés dans
+`STRIPE_PRICE_ESSENTIEL_TRANCHE_MONTHLY`, `STRIPE_PRICE_ESSENTIEL_TRANCHE_ANNUAL`,
+`STRIPE_PRICE_PRO_TRANCHE_MONTHLY` et `STRIPE_PRICE_PRO_TRANCHE_ANNUAL` sur Railway, et la
+colonne `users.extra_tranches` doit être ajoutée en base (voir "Évolutions ultérieures du
+schéma" ci-dessus) avant de déployer ce code.
 
 ## Prochaines étapes suggérées
 

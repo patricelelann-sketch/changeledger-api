@@ -8,8 +8,12 @@ from . import crud, models
 from .config import (
     STRIPE_PRICE_ESSENTIEL_ANNUAL,
     STRIPE_PRICE_ESSENTIEL_MONTHLY,
+    STRIPE_PRICE_ESSENTIEL_TRANCHE_ANNUAL,
+    STRIPE_PRICE_ESSENTIEL_TRANCHE_MONTHLY,
     STRIPE_PRICE_PRO_ANNUAL,
     STRIPE_PRICE_PRO_MONTHLY,
+    STRIPE_PRICE_PRO_TRANCHE_ANNUAL,
+    STRIPE_PRICE_PRO_TRANCHE_MONTHLY,
     STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET,
 )
@@ -26,6 +30,15 @@ TRIAL_PERIOD_DAYS = 14
 PRICE_BY_PLAN = {
     "essentiel": {"monthly": STRIPE_PRICE_ESSENTIEL_MONTHLY, "annual": STRIPE_PRICE_ESSENTIEL_ANNUAL},
     "pro": {"monthly": STRIPE_PRICE_PRO_MONTHLY, "annual": STRIPE_PRICE_PRO_ANNUAL},
+}
+
+# Même principe pour les tranches supplémentaires de fournisseurs (cf. models.TRANCHE_SIZE).
+TRANCHE_PRICE_BY_PLAN = {
+    "essentiel": {
+        "monthly": STRIPE_PRICE_ESSENTIEL_TRANCHE_MONTHLY,
+        "annual": STRIPE_PRICE_ESSENTIEL_TRANCHE_ANNUAL,
+    },
+    "pro": {"monthly": STRIPE_PRICE_PRO_TRANCHE_MONTHLY, "annual": STRIPE_PRICE_PRO_TRANCHE_ANNUAL},
 }
 
 
@@ -69,6 +82,63 @@ def create_checkout_session(
     return session.url
 
 
+def _billing_cycle_of_subscription(subscription, plan: str) -> Optional[str]:
+    """Détermine si un abonnement est mensuel ou annuel, en repérant lequel des deux prix de
+    base du palier (cf. PRICE_BY_PLAN) figure parmi ses lignes. Plus fiable que de lire
+    l'intervalle du premier item, qui pourrait être une tranche plutôt que le prix de base."""
+    base_prices = PRICE_BY_PLAN.get(plan, {})
+    item_price_ids = {item["price"]["id"] for item in subscription["items"]["data"]}
+    if base_prices.get("monthly") in item_price_ids:
+        return "monthly"
+    if base_prices.get("annual") in item_price_ids:
+        return "annual"
+    return None
+
+
+def add_tranche(user: models.User) -> int:
+    """Ajoute une tranche supplémentaire de fournisseurs (+1) à l'abonnement en cours de
+    l'utilisateur, en incrémentant la quantité du prix de tranche correspondant à son palier
+    et à son cycle de facturation (proration automatique par Stripe). Renvoie la nouvelle
+    quantité totale de tranches sur l'abonnement."""
+    _require_stripe_configured()
+    plan = user.plan.value if hasattr(user.plan, "value") else user.plan
+    if plan not in ("essentiel", "pro"):
+        raise HTTPException(
+            status_code=400,
+            detail="Les tranches supplémentaires ne sont disponibles en self-service que pour "
+            "les paliers Essentiel et Pro (le palier Entreprise est déjà illimité).",
+        )
+    if not user.stripe_subscription_id:
+        raise HTTPException(status_code=400, detail="Aucun abonnement actif pour ce compte.")
+
+    subscription = stripe.Subscription.retrieve(user.stripe_subscription_id)
+    cycle = _billing_cycle_of_subscription(subscription, plan)
+    tranche_price_id = TRANCHE_PRICE_BY_PLAN.get(plan, {}).get(cycle or "monthly")
+    if not tranche_price_id:
+        raise HTTPException(
+            status_code=503,
+            detail="Le tarif de tranche supplémentaire n'est pas configuré pour ce palier/cycle.",
+        )
+
+    existing_item = next(
+        (item for item in subscription["items"]["data"] if item["price"]["id"] == tranche_price_id),
+        None,
+    )
+    if existing_item:
+        new_quantity = existing_item["quantity"] + 1
+        stripe.Subscription.modify(
+            user.stripe_subscription_id,
+            items=[{"id": existing_item["id"], "quantity": new_quantity}],
+        )
+    else:
+        new_quantity = 1
+        stripe.Subscription.modify(
+            user.stripe_subscription_id,
+            items=[{"price": tranche_price_id, "quantity": 1}],
+        )
+    return new_quantity
+
+
 def create_portal_session(user: models.User, return_url: str) -> str:
     """Crée un lien vers le portail client Stripe (gérer/annuler l'abonnement)."""
     _require_stripe_configured()
@@ -86,6 +156,14 @@ def construct_webhook_event(payload: bytes, signature: Optional[str]):
         return stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
     except (ValueError, stripe.error.SignatureVerificationError) as exc:
         raise HTTPException(status_code=400, detail=f"Webhook Stripe invalide : {exc}")
+
+
+def _extract_tranche_quantity(items_data: list, plan: str) -> int:
+    """Additionne la quantité de tranches supplémentaires présentes sur une liste d'items
+    d'abonnement Stripe, pour un palier donné (il ne devrait y en avoir qu'un seul des deux
+    prix mensuel/annuel à la fois, mais additionner les deux reste sûr dans tous les cas)."""
+    tranche_price_ids = {pid for pid in TRANCHE_PRICE_BY_PLAN.get(plan, {}).values() if pid}
+    return sum(item["quantity"] for item in items_data if item["price"]["id"] in tranche_price_ids)
 
 
 def handle_webhook_event(db, event) -> None:
@@ -110,12 +188,19 @@ def handle_webhook_event(db, event) -> None:
         # récupéré auprès de Stripe plutôt que figé à "active" : avec l'essai de 14 jours, la
         # souscription créée au checkout est "trialing", pas "active".
         status = "active"
+        subscription_obj = None
         if subscription_id:
             try:
-                status = stripe.Subscription.retrieve(subscription_id).status
+                subscription_obj = stripe.Subscription.retrieve(subscription_id)
+                status = subscription_obj.status
             except stripe.error.StripeError:
                 pass
-        crud.update_subscription(db, user, plan or user.plan, subscription_id, status)
+        final_plan = plan or user.plan
+        crud.update_subscription(db, user, final_plan, subscription_id, status)
+        if subscription_obj is not None:
+            plan_value = final_plan.value if hasattr(final_plan, "value") else final_plan
+            tranche_qty = _extract_tranche_quantity(subscription_obj["items"]["data"], plan_value)
+            crud.set_extra_tranches(db, user, tranche_qty)
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
         customer_id = data.get("customer")
@@ -127,5 +212,13 @@ def handle_webhook_event(db, event) -> None:
         status = data.get("status")  # active, past_due, canceled, incomplete...
         if event_type == "customer.subscription.deleted" or status == "canceled":
             crud.update_subscription(db, user, "none", None, "canceled")
+            crud.set_extra_tranches(db, user, 0)
         else:
             crud.update_subscription(db, user, user.plan, data.get("id"), status)
+            # Synchronise les tranches supplémentaires depuis l'abonnement (source de vérité
+            # Stripe) : couvre aussi bien l'ajout via /billing/add-tranche qu'une modification
+            # faite directement depuis le portail client Stripe.
+            plan_value = user.plan.value if hasattr(user.plan, "value") else user.plan
+            items_data = (data.get("items") or {}).get("data", [])
+            tranche_qty = _extract_tranche_quantity(items_data, plan_value)
+            crud.set_extra_tranches(db, user, tranche_qty)

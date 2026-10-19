@@ -116,6 +116,13 @@ APP_UI_HTML = """<!doctype html>
 
   .plan-usage { font-size: 0.9rem; margin-bottom: 0.9rem; }
   .plan-usage.limit-reached { color: #b91c1c; }
+
+  .tranche-alert {
+    background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 8px;
+    padding: 0.8rem 1rem; margin-bottom: 0.9rem; font-size: 0.9rem; display: flex;
+    align-items: center; gap: 0.8rem; flex-wrap: wrap;
+  }
+  .tranche-alert button { font-size: 0.82rem; padding: 0.4rem 0.7rem; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -198,6 +205,7 @@ APP_UI_HTML = """<!doctype html>
 
     <div class="card">
       <h2>Sources surveillées</h2>
+      <div class="tranche-alert hidden" id="trancheAlert"></div>
       <div class="plan-usage" id="planUsage"></div>
       <table>
         <thead>
@@ -263,7 +271,9 @@ APP_UI_HTML = """<!doctype html>
 <script>
 const TOKEN_KEY = "changeledger_token";
 const PLAN_LABELS = { none: "Aucun", essentiel: "Essentiel", pro: "Pro", entreprise: "Entreprise" };
-const PLAN_LIMITS = { none: 0, essentiel: 5, pro: 25, entreprise: null };
+// La limite réelle (sources_limit, tranches comprises) vient de l'API via /auth/me — elle
+// n'est plus dupliquée ici. TRANCHE_SIZE ne sert qu'à l'affichage ("+10 fournisseurs").
+const TRANCHE_SIZE = { essentiel: 10, pro: 50 };
 const CATEGORY_LABELS = { tarif: "Tarif", resiliation: "Résiliation", paiement: "Paiement", responsabilite: "Responsabilité", autre: "Autre" };
 const SEVERITY_LABELS = { urgent: "Urgent", attention: "À vérifier", info: "Info" };
 const STATUS_LABELS = { trialing: "Essai en cours", active: "Actif", past_due: "Paiement en retard", canceled: "Annulé" };
@@ -478,20 +488,62 @@ function renderSources() {
   });
 
   const plan = currentUser ? currentUser.plan : "none";
-  const limit = PLAN_LIMITS[plan];
+  const limit = currentUser ? currentUser.sources_limit : 0;
   const usageEl = document.getElementById("planUsage");
   const addBtn = document.getElementById("addSourceBtn");
+  const trancheEl = document.getElementById("trancheAlert");
+  const canBuyTranche = plan === "essentiel" || plan === "pro";
+  trancheEl.classList.add("hidden");
+
   if (limit === null || limit === undefined) {
     usageEl.textContent = "Palier " + (PLAN_LABELS[plan] || plan) + " — sources illimitées.";
     usageEl.className = "plan-usage";
     addBtn.disabled = false;
   } else {
     const reached = sources.length >= limit;
+    const remaining = limit - sources.length;
     usageEl.textContent =
       "Palier " + (PLAN_LABELS[plan] || plan) + " — " + sources.length + " / " + limit + " sources utilisées" +
-      (reached ? " (limite atteinte, passe à un palier supérieur dans l'onglet Compte)." : ".");
+      (reached ? " (limite atteinte, passe à un palier supérieur ou ajoute une tranche ci-dessous)." : ".");
     usageEl.className = "plan-usage" + (reached ? " limit-reached" : "");
     addBtn.disabled = reached;
+
+    // Alerte automatique dès qu'il ne reste plus que 2 fournisseurs disponibles (ou moins) —
+    // proposée uniquement sur les paliers Essentiel/Pro, seuls éligibles aux tranches en
+    // self-service (Entreprise est déjà illimité, "none" n'a pas d'abonnement à étendre).
+    if (canBuyTranche && remaining <= 2) {
+      const size = TRANCHE_SIZE[plan] || 0;
+      trancheEl.classList.remove("hidden");
+      trancheEl.innerHTML =
+        "<span>" +
+        (reached
+          ? "Tu as atteint la limite de ton palier."
+          : "Il ne te reste que " + remaining + " fournisseur" + (remaining > 1 ? "s" : "") + " disponible" + (remaining > 1 ? "s" : "") + " sur ton palier.") +
+        " Ajoute une tranche de +" + size + " fournisseurs pour continuer à en surveiller davantage.</span>" +
+        '<button id="addTrancheBtn">Ajouter une tranche (+' + size + ")</button>";
+      document.getElementById("addTrancheBtn").addEventListener("click", addTranche);
+    }
+  }
+}
+
+async function addTranche() {
+  const btn = document.getElementById("addTrancheBtn");
+  if (btn) btn.disabled = true;
+  setMsg("addSourceMsg", "Ajout d'une tranche supplémentaire en cours...", "");
+  try {
+    const res = await apiFetch("/billing/add-tranche", { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(extractErrorMessage(body));
+    currentUser = body;
+    setMsg(
+      "addSourceMsg",
+      "Tranche ajoutée — nouvelle limite : " + currentUser.sources_limit + " fournisseurs.",
+      "success"
+    );
+    renderSources();
+  } catch (err) {
+    setMsg("addSourceMsg", err.message, "error");
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -623,6 +675,31 @@ function renderAccount() {
     btn.textContent = "Gérer mon abonnement";
     btn.onclick = openPortal;
     actions.appendChild(btn);
+
+    const size = TRANCHE_SIZE[currentUser.plan] || 0;
+    const trancheBtn = document.createElement("button");
+    trancheBtn.className = "secondary";
+    trancheBtn.textContent = "Ajouter une tranche (+" + size + " fournisseurs)";
+    trancheBtn.onclick = async () => {
+      trancheBtn.disabled = true;
+      setMsg("billingMsg", "Ajout d'une tranche supplémentaire en cours...", "");
+      try {
+        const res = await apiFetch("/billing/add-tranche", { method: "POST" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(extractErrorMessage(body));
+        currentUser = body;
+        setMsg(
+          "billingMsg",
+          "Tranche ajoutée — nouvelle limite : " + currentUser.sources_limit + " fournisseurs.",
+          "success"
+        );
+      } catch (err) {
+        setMsg("billingMsg", err.message, "error");
+      } finally {
+        trancheBtn.disabled = false;
+      }
+    };
+    actions.appendChild(trancheBtn);
   } else {
     const cycleWrap = document.createElement("div");
     cycleWrap.style.marginBottom = "0.6rem";
