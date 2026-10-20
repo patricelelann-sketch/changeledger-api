@@ -18,6 +18,33 @@ LANDING_HTML = f"""<!doctype html>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ChangeLedger",
+  "url": "https://changeledger.io",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "Veille automatisée des CGV, grilles tarifaires et contrats fournisseurs : détection des changements, classement par catégorie et sévérité, alertes par email et webhook.",
+  "offers": [
+    {{
+      "@type": "Offer",
+      "name": "Essentiel",
+      "price": "29.00",
+      "priceCurrency": "EUR",
+      "description": "Jusqu'à 10 sources surveillées, essai de 14 jours inclus."
+    }},
+    {{
+      "@type": "Offer",
+      "name": "Pro",
+      "price": "59.00",
+      "priceCurrency": "EUR",
+      "description": "Jusqu'à 50 sources surveillées, essai de 14 jours inclus."
+    }}
+  ]
+}}
+</script>
 <style>
   :root {{
     color-scheme: light dark;
@@ -96,6 +123,19 @@ LANDING_HTML = f"""<!doctype html>
   .audience .grid {{ grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }}
   .audience-card h3 {{ font-size: 1.02rem; margin: 0 0 0.5rem; font-weight: 500; }}
   .audience-card p {{ margin: 0; font-size: 0.9rem; color: var(--cl-muted); }}
+
+  .trust {{ background: var(--cl-surface); }}
+  .trust .grid {{ grid-template-columns: 1.3fr 1fr; align-items: start; gap: 2.5rem; }}
+  .trust blockquote {{
+    margin: 0; padding: 1.8rem 2rem; background: #fff; border: 1px solid var(--cl-border);
+    border-left: 4px solid var(--cl-accent); border-radius: 10px; font-size: 1.05rem; color: var(--cl-ink);
+  }}
+  .trust blockquote p {{ margin: 0 0 0.9rem; }}
+  .trust blockquote footer {{ font-size: 0.88rem; color: var(--cl-muted); font-style: normal; }}
+  .trust-badges {{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.92rem; }}
+  .trust-badges li {{ padding-left: 1.6rem; position: relative; }}
+  .trust-badges li::before {{ content: "✓"; position: absolute; left: 0; color: var(--cl-accent); font-weight: 700; }}
+  @media (max-width: 640px) {{ .trust .grid {{ grid-template-columns: 1fr; }} }}
 
   .steps {{ counter-reset: step; }}
   .steps .grid {{ grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }}
@@ -253,6 +293,26 @@ LANDING_HTML = f"""<!doctype html>
   </div>
 </section>
 
+<section class="trust">
+  <div class="wrap">
+    <h2>Pourquoi ChangeLedger existe</h2>
+    <div class="grid">
+      <blockquote>
+        <p>« J'ai créé ChangeLedger après avoir découvert, bien trop tard, qu'un fournisseur avait changé
+        ses conditions de paiement sans prévenir — une mauvaise surprise qui aurait pu être évitée avec
+        une simple alerte automatique. C'est l'outil que j'aurais aimé avoir à l'époque. »</p>
+        <footer>— Patrice Le Lann, fondateur de ChangeLedger</footer>
+      </blockquote>
+      <ul class="trust-badges">
+        <li>Hébergement en Europe (Railway, Hostinger)</li>
+        <li>Conforme RGPD — sous-traitants déclarés dans la politique de confidentialité</li>
+        <li>Résiliable à tout moment, en un clic depuis votre compte</li>
+        <li>Essai de 14 jours, carte débitée seulement après — jamais avant</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <section class="steps features">
   <div class="wrap">
     <h2>Comment ça marche</h2>
@@ -289,7 +349,7 @@ LANDING_HTML = f"""<!doctype html>
       <div class="plan-card">
         <div class="plan-name">Essentiel</div>
         <div class="plan-price"><span class="price-monthly">29&nbsp;€<span>/mois</span></span><span class="price-annual" style="display:none">290&nbsp;€<span>/an</span></span></div>
-        <div class="plan-sub">Jusqu'à 5 sources surveillées</div>
+        <div class="plan-sub">Jusqu'à 10 sources surveillées</div>
         <ul class="plan-features">
           <li>Classification et résumé des changements par IA</li>
           <li>Alertes par email</li>
@@ -303,7 +363,7 @@ LANDING_HTML = f"""<!doctype html>
         <span class="plan-badge">Le plus choisi</span>
         <div class="plan-name">Pro</div>
         <div class="plan-price"><span class="price-monthly">59&nbsp;€<span>/mois</span></span><span class="price-annual" style="display:none">590&nbsp;€<span>/an</span></span></div>
-        <div class="plan-sub">Jusqu'à 25 sources surveillées</div>
+        <div class="plan-sub">Jusqu'à 50 sources surveillées</div>
         <ul class="plan-features">
           <li>Classification et résumé des changements par IA</li>
           <li>Alertes par email</li>
