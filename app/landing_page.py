@@ -18,6 +18,14 @@ LANDING_HTML = f"""<!doctype html>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-KE9P7X3V01"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{dataLayer.push(arguments);}}
+  gtag('js', new Date());
+  gtag('config', 'G-KE9P7X3V01');
+</script>
 <script type="application/ld+json">
 {{
   "@context": "https://schema.org",
@@ -421,6 +429,20 @@ function setCycle(cycle) {{
   document.querySelectorAll(".price-monthly").forEach(el => el.style.display = monthly ? "" : "none");
   document.querySelectorAll(".price-annual").forEach(el => el.style.display = monthly ? "none" : "");
 }}
+
+// Suivi de conversion : clic sur un CTA "Essayer gratuitement" (tous renvoient vers ?signup=1).
+// TODO: ajouter ici l'appel lintrk('track', {{conversion_id: ...}}) une fois le Partner ID
+// et la balise Insight LinkedIn récupérés (compte pub ChangeLedger en attente de validation).
+document.querySelectorAll('a[href*="signup=1"]').forEach(function (el) {{
+  el.addEventListener('click', function () {{
+    if (typeof gtag === 'function') {{
+      gtag('event', 'cta_click', {{
+        event_category: 'engagement',
+        event_label: 'essayer_gratuitement'
+      }});
+    }}
+  }});
+}});
 </script>
 
 </body>
