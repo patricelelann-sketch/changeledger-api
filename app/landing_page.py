@@ -15,6 +15,7 @@ LANDING_HTML = f"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChangeLedger — Veille automatisée des conditions fournisseurs</title>
 <meta name="description" content="ChangeLedger surveille les CGV, grilles tarifaires et contrats de vos fournisseurs, détecte chaque changement et vous en résume l'impact en langage clair. Essai gratuit de 14 jours.">
+<meta name="google-site-verification" content="XgcatDxXaTAPdeeaiishcw6lnGxYgaLj1aimxNelo-Y">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
