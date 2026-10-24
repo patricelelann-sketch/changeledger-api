@@ -23,6 +23,7 @@ from .admin_ui import ADMIN_UI_HTML
 from .app_ui import APP_UI_HTML
 from .landing_page import LANDING_HTML
 from .legal_pages import CGU_HTML, CGV_HTML, PRIVACY_HTML
+from .blog_pages import BLOG_INDEX_HTML, BLOG_POST_HTML
 from .analyzer import analyze_change
 from .config import CHECKOUT_CANCEL_URL, CHECKOUT_SUCCESS_URL, PASSWORD_RESET_EXPIRE_MINUTES
 from .database import Base, engine, get_db
@@ -105,6 +106,8 @@ def root(request: Request):
 # fréquence de changement). Ajouter ici chaque nouvel article de blog.
 SITEMAP_ENTRIES = [
     ("/", "1.0", "weekly"),
+    ("/blog", "0.8", "weekly"),
+    ("/blog/hausse-tarif-fournisseur-sans-preavis", "0.6", "monthly"),
 ]
 
 
@@ -174,6 +177,21 @@ def legal_cgv():
 def legal_confidentialite():
     """Politique de confidentialité (RGPD)."""
     return PRIVACY_HTML
+
+
+@app.get("/blog", response_class=HTMLResponse, include_in_schema=False)
+def blog_index():
+    """Index du blog marketing (liste des articles)."""
+    return BLOG_INDEX_HTML
+
+
+@app.get("/blog/{slug}", response_class=HTMLResponse, include_in_schema=False)
+def blog_post(slug: str):
+    """Article de blog individuel ; 404 si le slug est inconnu."""
+    html = BLOG_POST_HTML.get(slug)
+    if html is None:
+        raise HTTPException(status_code=404, detail="Article introuvable.")
+    return HTMLResponse(html)
 
 
 # --- Authentification ---

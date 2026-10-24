@@ -223,6 +223,7 @@ LANDING_HTML = f"""<!doctype html>
     <nav>
       <a class="nav-link-desktop" href="#fonctionnalites">Fonctionnalités</a>
       <a class="nav-link-desktop" href="#tarifs">Tarifs</a>
+      <a class="nav-link-desktop" href="/blog">Blog</a>
       <a class="nav-login" href="https://app.changeledger.io/app">Se connecter</a>
       <a class="btn btn-primary" href="https://app.changeledger.io/app?signup=1">Essayer gratuitement</a>
     </nav>
@@ -428,6 +429,7 @@ LANDING_HTML = f"""<!doctype html>
       <p class="tagline">Veille automatisée des conditions fournisseurs.</p>
     </div>
     <div class="links">
+      <a href="/blog">Blog</a>
       <a href="/legal/cgu">CGU</a>
       <a href="/legal/cgv">CGV</a>
       <a href="/legal/confidentialite">Politique de confidentialité</a>
