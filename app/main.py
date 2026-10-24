@@ -7,6 +7,7 @@ utilisateur ; /check-all reste un endpoint système protégé par un secret part
 """
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -38,6 +39,10 @@ FAVICON_SVG = (
     'font-size="34" font-weight="700" fill="#FFFFFF" text-anchor="middle">C</text>'
     '</svg>'
 )
+
+# Image de partage (Open Graph / Twitter Card) pour la page marketing — générée une
+# fois (voir README) et servie telle quelle, pas de dépendance de rendu à l'exécution.
+OG_IMAGE_BYTES = (Path(__file__).parent / "static" / "og-image.png").read_bytes()
 
 
 @asynccontextmanager
@@ -96,9 +101,55 @@ def root(request: Request):
     return RedirectResponse(url="/app")
 
 
+# Pages publiques du site marketing à référencer dans le sitemap (chemin, priorité,
+# fréquence de changement). Ajouter ici chaque nouvel article de blog.
+SITEMAP_ENTRIES = [
+    ("/", "1.0", "weekly"),
+]
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt(request: Request):
+    """Autorise l'indexation du site marketing (changeledger.io) et pointe vers son
+    sitemap ; interdit celle de l'application elle-même (app.changeledger.io, URL
+    Railway) qui ne doit pas apparaître dans les résultats de recherche."""
+    host = (request.headers.get("host") or "").split(":")[0].lower()
+    if host in MARKETING_HOSTS:
+        body = "User-agent: *\nAllow: /\n\nSitemap: https://changeledger.io/sitemap.xml\n"
+    else:
+        body = "User-agent: *\nDisallow: /\n"
+    return Response(content=body, media_type="text/plain")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    today = datetime.now().strftime("%Y-%m-%d")
+    urls = "\n".join(
+        f"<url><loc>https://changeledger.io{path}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>{changefreq}</changefreq><priority>{priority}</priority></url>"
+        for path, priority, changefreq in SITEMAP_ENTRIES
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}\n"
+        "</urlset>\n"
+    )
+    return Response(content=xml, media_type="application/xml")
+
+
 @app.get("/favicon.svg", include_in_schema=False)
 def favicon():
     return Response(content=FAVICON_SVG, media_type="image/svg+xml")
+
+
+@app.get("/og-image.png", include_in_schema=False)
+def og_image():
+    return Response(
+        content=OG_IMAGE_BYTES,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @app.get("/app", response_class=HTMLResponse, include_in_schema=False)

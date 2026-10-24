@@ -16,7 +16,22 @@ LANDING_HTML = f"""<!doctype html>
 <title>ChangeLedger — Veille automatisée des conditions fournisseurs</title>
 <meta name="description" content="ChangeLedger surveille les CGV, grilles tarifaires et contrats de vos fournisseurs, détecte chaque changement et vous en résume l'impact en langage clair. Essai gratuit de 14 jours.">
 <meta name="google-site-verification" content="XgcatDxXaTAPdeeaiishcw6lnGxYgaLj1aimxNelo-Y">
+<link rel="canonical" href="https://changeledger.io/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- Open Graph / Twitter Card : aperçu soigné lors des partages (LinkedIn, Twitter, Slack...) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ChangeLedger">
+<meta property="og:url" content="https://changeledger.io/">
+<meta property="og:title" content="ChangeLedger — Veille automatisée des conditions fournisseurs">
+<meta property="og:description" content="Détectez chaque changement de CGV, tarif ou contrat fournisseur, résumé en langage clair. Essai gratuit de 14 jours.">
+<meta property="og:image" content="https://changeledger.io/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ChangeLedger — Veille automatisée des conditions fournisseurs">
+<meta name="twitter:description" content="Détectez chaque changement de CGV, tarif ou contrat fournisseur, résumé en langage clair. Essai gratuit de 14 jours.">
+<meta name="twitter:image" content="https://changeledger.io/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- Google tag (gtag.js) -->
